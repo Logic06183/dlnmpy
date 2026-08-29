@@ -223,7 +223,7 @@ class CrossBasis(_MatrixLike):
         return "\n".join(lines)
 
     def __repr__(self):
-        return (f"CrossBasis(shape={self.shape}, lag={tuple(self.lag)}, "
+        return (f"CrossBasis(shape={self.shape}, lag={tuple(int(v) for v in self.lag)}, "
                 f"argvar={_short(self.argvar)}, arglag={_short(self.arglag)})")
 
 

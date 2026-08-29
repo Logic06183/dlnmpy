@@ -285,7 +285,7 @@ class CrossPred:
         return plot_crosspred(self, *args, **kwargs)
 
     def __repr__(self):
-        return (f"CrossPred(values={len(self.predvar)}, lag={tuple(self.lag)}, bylag={self.bylag}, "
+        return (f"CrossPred(values={len(self.predvar)}, lag={tuple(int(v) for v in self.lag)}, bylag={self.bylag}, "
                 f"cen={self.cen}, link={self.model_link!r}, cumul={self.cumfit is not None})")
 
 
@@ -430,7 +430,7 @@ class CrossReduce:
 
     def __repr__(self):
         return (f"CrossReduce(type={self.type!r}, value={self.value}, params={self.coef.size}, "
-                f"lag={tuple(self.lag)}, cen={self.cen}, link={self.model_link!r})")
+                f"lag={tuple(int(v) for v in self.lag)}, cen={self.cen}, link={self.model_link!r})")
 
 
 def crossreduce(basis: CrossBasis, model=None, type: str = "overall", value=None,
