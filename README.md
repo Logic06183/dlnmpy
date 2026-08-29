@@ -92,12 +92,16 @@ The cross-basis columns are named `v{i}.l{j}` as in R (or `{name}_v{i}_l{j}` in 
 `tools/make_fixtures.R` runs the R package on the vignette examples and writes every intermediate object to `tests/fixtures/` as CSV and JSON: 32 basis-function specifications (with and without values outside the fitting range), 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The Python test-suite compares against these numbers with absolute tolerances of 1e-10 to 1e-12.
 
 ```
-pytest            # 63 tests
+pytest            # 64 tests
 ```
+
+A second, independent check lives in `tools/side_by_side.R` / `tools/side_by_side.py`: five complete analyses are run end to end in both languages, including the model fit, on data and specifications not used for the unit-test fixtures (the `drug` trial with OLS on exposure histories, the `nested` case-control study with conditional logistic regression, a logistic and a quasi-Poisson Chicago model with threshold, polynomial, strata and integer bases, 80% and 90% intervals, exposure-history matrices passed to `at`, and a four-city simulation with known truth). All 102 quantities compared agree to better than 1e-8; most to 1e-12. The report is printed by `python tools/side_by_side.py` and the test-suite runs it too.
 
 Two things worth knowing about equivalence with R:
 
 - R's `glm` handles rank-deficient designs by dropping aliased columns (reported as `NA`); statsmodels uses a pseudo-inverse and a numerical rank. `fit_glm` reproduces R's behaviour (drops aliased columns using the same criterion as LINPACK's `dqrdc2`, solves the IRLS step by QR, and computes the quasi-likelihood dispersion with R's residual degrees of freedom). This is why the example-1 coefficients agree to 1e-14 rather than 1e-6.
+- R's `glm` stops iterating at a looser tolerance (`epsilon = 1e-8`) than `fit_glm` does; with R's default settings, standard errors differ from Python's at about 1e-7. Tightening R's `glm.control(epsilon = 1e-14)` brings the two to 1e-15, so the difference is R's convergence criterion, not the algorithms.
+- Conditional logistic regression: statsmodels' default optimiser (BFGS) can stop on a flat likelihood with coefficients 0.02 away from `survival::clogit`, and its covariance is a numerical approximation. `fit_clogit` uses Newton-Raphson and an extrapolated finite-difference Hessian of the analytic score, which matches R to 1e-9.
 - The reference level of categorical terms in patsy formulas is the first level in alphabetical order, as in R for character vectors; R factors with explicit levels may differ. This does not affect the cross-basis coefficients.
 
 ## Repository layout

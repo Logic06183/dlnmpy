@@ -13,7 +13,7 @@ import re
 
 import numpy as np
 
-__all__ = ["extract_coef_vcov", "get_link", "fit_glm", "design_matrix"]
+__all__ = ["extract_coef_vcov", "get_link", "fit_glm", "fit_clogit", "design_matrix"]
 
 
 def _params_index(model):
@@ -203,3 +203,45 @@ def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool
             res = model.fit(scale=disp, start_params=res.params, **kwargs)
     res.aliased = getattr(model, "aliased", [])
     return res
+
+
+def fit_clogit(y, X, groups, **kwargs):
+    """Conditional logistic regression (matched case-control designs), the
+    Python counterpart of ``survival::clogit``.
+
+    Uses statsmodels' ``ConditionalLogit`` fitted by Newton-Raphson with a
+    tight tolerance. The default BFGS optimiser can stop early on flat
+    likelihoods and give coefficients that differ from R's at the second
+    decimal, so it is not used.
+    """
+    from statsmodels.discrete.conditional_models import ConditionalLogit
+
+    kwargs.setdefault("method", "newton")
+    kwargs.setdefault("tol", 1e-12)
+    kwargs.setdefault("maxiter", 500)
+    kwargs.setdefault("disp", 0)
+    res = ConditionalLogit(np.asarray(y), X, groups=np.asarray(groups)).fit(**kwargs)
+    # statsmodels approximates the Hessian numerically (about 1e-4 relative
+    # error in the covariance). Replace it with Richardson-extrapolated central
+    # differences of the analytic score, which agrees with R's information
+    # matrix to about 1e-10.
+    b = np.asarray(res.params, dtype=float)
+    cov = np.linalg.inv(-_score_jacobian(res.model.score, b))
+    inner = getattr(res, "_results", res)  # results may be wrapped
+    inner.normalized_cov_params = cov
+    inner.cov_params_default = cov
+    return res
+
+
+def _score_jacobian(score, b, h0: float = 1e-4) -> np.ndarray:
+    p = b.size
+    H = np.zeros((p, p))
+    for j in range(p):
+        h = h0 * max(1.0, abs(b[j]))
+        e = np.zeros(p)
+        e[j] = h
+        d1 = (score(b + e) - score(b - e)) / (2 * h)
+        e[j] = h / 2
+        d2 = (score(b + e) - score(b - e)) / h
+        H[:, j] = (4 * d2 - d1) / 3
+    return (H + H.T) / 2

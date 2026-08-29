@@ -23,7 +23,7 @@ from .basis import bs, integer, lin, ns, poly, ps, strata, thr
 from .core import CrossBasis, OneBasis, crossbasis, onebasis
 from .knots import equalknots, logknots
 from .lag import exphist, lag_matrix, mklag, seqlag
-from .model import design_matrix, extract_coef_vcov, fit_glm, get_link
+from .model import design_matrix, extract_coef_vcov, fit_clogit, fit_glm, get_link
 from .penalty import cbpen
 from .predict import CrossPred, CrossReduce, crosspred, crossreduce
 
@@ -33,6 +33,6 @@ __all__ = [
     "onebasis", "crossbasis", "crosspred", "crossreduce", "exphist", "logknots",
     "equalknots", "cbpen", "OneBasis", "CrossBasis", "CrossPred", "CrossReduce",
     "lin", "poly", "strata", "thr", "integer", "ns", "bs", "ps",
-    "lag_matrix", "mklag", "seqlag", "fit_glm", "design_matrix", "extract_coef_vcov",
+    "lag_matrix", "mklag", "seqlag", "fit_glm", "fit_clogit", "design_matrix", "extract_coef_vcov",
     "get_link", "pretty", "quantile7", "basis", "datasets",
 ]

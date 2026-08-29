@@ -15,6 +15,7 @@ The public API mirrors the R package so that existing R analyses translate almos
 | `logknots(30, 3)`, `equalknots(x, fun="bs", df=5, degree=2)` | same |
 | `exphist(exp, times, lag, fill)` | same |
 | `glm(death ~ cb + ns(time, 98) + dow, quasipoisson(), data)` | `dl.fit_glm("death ~ " + " + ".join(cols) + " + C(dow)", data, family="quasipoisson")` where `cols` are the columns of `cb.to_dataframe("cb")` and `dl.onebasis(time, "ns", df=98).to_dataframe("ns_time")` |
+| `clogit(case ~ cb + strata(riskset), nested)` | `dl.fit_clogit(nested.case, cb.to_dataframe("cb"), groups=nested.riskset)` |
 | `crosspred(cb, model, at=0:20, bylag=0.2, cumul=TRUE)` | `dl.crosspred(cb, model, at=range(21), bylag=0.2, cumul=True, name="cb")` |
 | `crosspred(cb, model, from=-10, to=30, by=1, cen=21)` | `dl.crosspred(cb, model, from_=-10, to=30, by=1, cen=21, name="cb")` |
 | `crosspred(cb, coef=b, vcov=V, model.link="log")` | `dl.crosspred(cb, coef=b, vcov=V, model_link="log")` |
