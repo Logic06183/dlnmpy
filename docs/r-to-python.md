@@ -26,7 +26,8 @@ The public API mirrors the R package so that existing R analyses translate almos
 | `red$coefficients`, `vcov(red)` | `red.coef`, `red.vcov` |
 | `plot(pred, "overall")` | `pred.plot("overall")` |
 | `plot(pred, "slices", var=c(-20, 33), lag=c(0, 5))` | `pred.plot("slices", var=[-20, 33], lag=[0, 5])` |
-| `plot(pred, "contour")`, `plot(pred)` (3d) | `pred.plot("contour")`, `pred.plot("3d")` |
+| `plot(pred, "contour", xlab=, ylab=, key.title=title("RR"))` | `pred.plot("contour", xlab=, ylab=, zlab="RR")` (`ylab` is the lag axis, `zlab` the outcome, as in R) |
+| `plot(pred, xlab=, ylab=, zlab=)` (3d) | `pred.plot("3d", xlab=, ylab=, zlab=)` |
 | `plot(red)` | `red.plot()` |
 | `summary(cb)`, `summary(pred)` | `print(cb.summary())`, `print(pred.summary())` |
 | `cbPen(cb)` | `dl.cbpen(cb)` |

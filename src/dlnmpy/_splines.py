@@ -11,6 +11,7 @@ prediction time.
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 
@@ -257,6 +258,7 @@ def ns(x, df=None, knots=None, intercept: bool = False, boundary_knots=None):
     if mk_knots:
         n_iknots = int(df) - 1 - int(intercept)
         if n_iknots < 0:
+            warnings.warn(f"'df' was too small; have used {1 + int(intercept)}", stacklevel=2)
             n_iknots = 0
         if n_iknots > 0:
             probs = np.linspace(0, 1, n_iknots + 2)[1:-1]
@@ -350,6 +352,7 @@ def bs(x, df=None, knots=None, degree: int = 3, intercept: bool = False,
     if mk_knots:
         n_iknots = int(df) - ord + (1 - int(intercept))
         if n_iknots < 0:
+            warnings.warn(f"'df' was too small; have used {ord - (1 - int(intercept))}", stacklevel=2)
             n_iknots = 0
         if n_iknots > 0:
             probs = np.linspace(0, 1, n_iknots + 2)[1:-1]

@@ -30,7 +30,7 @@ def _ci(ax, x, low, high, ci: str, **kw):
 
 def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
                    ci_level=None, cumul: bool = False, exp=None, ax=None,
-                   xlab=None, ylab=None, title=None, **kwargs):
+                   xlab=None, ylab=None, zlab=None, title=None, **kwargs):
     """Plot a ``CrossPred`` object.
 
     Parameters
@@ -44,6 +44,10 @@ def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
     ci : {"area", "lines", "bars", "n"}
     exp : bool, optional
         Exponentiate (default: yes for log/logit links).
+    xlab, ylab, zlab : str, optional
+        Axis labels, with the same meaning as in R: for "overall" and
+        "slices", ``ylab`` is the outcome; for "contour" and "3d", ``ylab``
+        is the lag axis and ``zlab`` the outcome (colour bar or z axis).
     """
     plt = _mpl()
     if ptype is None:
@@ -123,8 +127,8 @@ def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
         vmin, vmax = float(zmat.min()), float(zmat.max())
         norm_ = TwoSlopeNorm(vcenter=noeff, vmin=min(vmin, noeff - 1e-9), vmax=max(vmax, noeff + 1e-9))
         cf = ax.contourf(pred.predvar, lags, zmat.T, levels=levels, cmap=kwargs.pop("cmap", "RdBu_r"), norm=norm_)
-        plt.colorbar(cf, ax=ax, label=ylab or "Outcome")
-        ax.set_xlabel(xlab or "Var"); ax.set_ylabel("Lag")
+        plt.colorbar(cf, ax=ax, label=zlab or "Outcome")
+        ax.set_xlabel(xlab or "Var"); ax.set_ylabel(ylab or "Lag")
         if title: ax.set_title(title)
         return ax
 
@@ -139,7 +143,7 @@ def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
         ax.plot_surface(X, Y, f(matfit), cmap=kwargs.pop("cmap", "viridis"),
                         linewidth=0.2, edgecolor="k", antialiased=True, **kwargs)
         ax.view_init(elev=phi, azim=theta)
-        ax.set_xlabel(xlab or "Var"); ax.set_ylabel("Lag"); ax.set_zlabel(ylab or "Outcome")
+        ax.set_xlabel(xlab or "Var"); ax.set_ylabel(ylab or "Lag"); ax.set_zlabel(zlab or "Outcome")
         if title: ax.set_title(title)
         return ax
 

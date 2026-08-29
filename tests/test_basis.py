@@ -79,3 +79,10 @@ def test_custom_callable_basis(chicago):
     ob = dl.onebasis(chicago.temp, mybasis, power=3)
     assert ob.shape == (len(chicago), 2)
     assert_close(ob.transform([2.0]), [[2.0, 8.0]])
+
+
+def test_small_df_warns_like_r(chicago):
+    with pytest.warns(UserWarning, match="too small"):
+        dl.onebasis(chicago.temp, "ns", df=0)
+    with pytest.warns(UserWarning, match="too small"):
+        dl.onebasis(chicago.temp, "bs", df=2)

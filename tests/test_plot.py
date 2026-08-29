@@ -27,9 +27,11 @@ def test_plot_types(pred):
     plt.close("all")
     assert p.plot("slices", var=33, cumul=True, ci="bars") is not None
     plt.close("all")
-    assert p.plot("contour") is not None
+    ax = p.plot("contour", xlab="Temperature", ylab="Lag (days)", zlab="RR")
+    assert ax.get_ylabel() == "Lag (days)"
     plt.close("all")
-    assert p.plot("3d") is not None
+    ax = p.plot("3d", zlab="RR")
+    assert ax.get_zlabel() == "RR" and ax.get_ylabel() == "Lag"
     plt.close("all")
     assert rd.plot(ci="lines") is not None
     plt.close("all")

@@ -85,9 +85,9 @@ pred3_temp = dl.crosspred(cb3_temp, model3, cen=21, by=1, name="cb3_temp")
 
 fig = plt.figure(figsize=(11, 4.2))
 ax3d = fig.add_subplot(121, projection="3d")
-pred3_temp.plot("3d", ax=ax3d, xlab="Temperature", ylab="RR", theta=200, phi=40, title="3D graph of temperature effect")
+pred3_temp.plot("3d", ax=ax3d, xlab="Temperature", zlab="RR", theta=200, phi=40, title="3D graph of temperature effect")
 ax = fig.add_subplot(122)
-pred3_temp.plot("contour", ax=ax, xlab="Temperature", ylab="RR", title="Contour plot")
+pred3_temp.plot("contour", ax=ax, xlab="Temperature", zlab="RR", title="Contour plot")
 fig.tight_layout()
 fig.savefig(out / "example3_surface.png", dpi=130)
 
