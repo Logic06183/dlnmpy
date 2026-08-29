@@ -87,12 +87,29 @@ R argument spellings are accepted where they differ (`thr.value`/`thr`, `Boundar
 
 The cross-basis columns are named `v{i}.l{j}` as in R (or `{name}_v{i}_l{j}` in the DataFrame returned by `to_dataframe`, which is what `crosspred(..., name=...)` uses to find the right coefficients in a fitted model).
 
+## Beyond the R package: attributable risk and the MMT
+
+`dlnm` stops at prediction; the quantities papers actually report need Gasparrini's separate R scripts. Those are ported and validated here too (`dlnmpy.attribution`):
+
+```python
+res = dl.mmt(cb, model, x=chicago.temp, name="cb")       # minimum mortality temperature
+res.mmt, res.low, res.high, res.percentile               # with empirical 95% CI and percentile
+
+tab = dl.attr_table(chicago.temp, cb, chicago.death, model, cen=res.mmt, name="cb")
+# component | range | an an_low an_high | af af_low af_high
+# total, cold, heat, extreme cold, moderate cold, moderate heat, extreme heat
+
+dl.attrdl(chicago.temp, cb, chicago.death, model, type="an", dir="forw", cen=res.mmt, name="cb")
+```
+
+`attrdl` is a port of `attrdl.R` (Gasparrini & Leone 2014): backward and forward perspectives, attributable numbers and fractions, daily or total, exposure ranges, reduced coefficients, and empirical intervals by simulation. `findmin` ports `findmin.R` (Tobías, Armstrong & Gasparrini 2017). Both match the R functions to 1e-8 or better on every deterministic quantity (`tests/test_attribution.py`); the simulation path is checked with the same coefficient draws in both languages. `mmt` and `attr_table` wrap them into the summaries used in practice, with one shared set of simulated coefficients so cold, heat and their extreme and moderate parts are mutually consistent. See `examples/attributable_risk.py`.
+
 ## Validation
 
 `tools/make_fixtures.R` runs the R package on the vignette examples and writes every intermediate object to `tests/fixtures/` as CSV and JSON: 32 basis-function specifications (with and without values outside the fitting range), 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The Python test-suite compares against these numbers with absolute tolerances of 1e-10 to 1e-12.
 
 ```
-pytest            # 64 tests
+pytest            # 70 tests
 ```
 
 A second, independent check lives in `tools/side_by_side.R` / `tools/side_by_side.py`: five complete analyses are run end to end in both languages, including the model fit, on data and specifications not used for the unit-test fixtures (the `drug` trial with OLS on exposure histories, the `nested` case-control study with conditional logistic regression, a logistic and a quasi-Poisson Chicago model with threshold, polynomial, strata and integer bases, 80% and 90% intervals, exposure-history matrices passed to `at`, and a four-city simulation with known truth). All 102 quantities compared agree to better than 1e-8; most to 1e-12. The report is printed by `python tools/side_by_side.py` and the test-suite runs it too.
@@ -132,7 +149,7 @@ examples/            vignette reproduction
 ## Roadmap
 
 1. Cubic regression splines (`cr`) and a penalised fitter for `ps`/`cr` cross-bases (the R package delegates to `mgcv::gam`; the Python route is a REML or GCV fit with the penalty matrices from `cbpen`).
-2. Attributable risk (`attrdl`, from Gasparrini & Leone 2014), not part of `dlnm` itself but used in nearly every application.
+2. Parametric-bootstrap intervals for any derived quantity, and a Bayesian route (same design matrix in PyMC/numpyro).
 3. Multivariate meta-analysis of reduced coefficients (the `mixmeta` step of two-stage designs).
 4. A Rust core with Python bindings, validated with the same fixtures.
 
@@ -146,6 +163,8 @@ Two earlier Python efforts exist: [aedessler/pydlnm](https://github.com/aedessle
 - Gasparrini A. Distributed lag linear and non-linear models in R: the package dlnm. *Journal of Statistical Software* 2011; 43(8):1-20.
 - Gasparrini A, Armstrong B. Reducing and meta-analysing estimates from distributed lag non-linear models. *BMC Medical Research Methodology* 2013; 13:1.
 - Gasparrini A. Modeling exposure-lag-response associations with distributed lag non-linear models. *Statistics in Medicine* 2014; 33(5):881-899.
+- Gasparrini A, Leone M. Attributable risk from distributed lag models. *BMC Medical Research Methodology* 2014; 14:55.
+- Tobías A, Armstrong B, Gasparrini A. Investigating uncertainty in the minimum mortality temperature. *Epidemiology* 2017; 28(1):72-76.
 - Gasparrini A, Scheipl F, Armstrong B, Kenward MG. A penalized framework for distributed lag non-linear models. *Biometrics* 2017; 73(3):938-948.
 
 ## Licence
