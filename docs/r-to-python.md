@@ -30,6 +30,13 @@ The public API mirrors the R package so that existing R analyses translate almos
 | `plot(red)` | `red.plot()` |
 | `summary(cb)`, `summary(pred)` | `print(cb.summary())`, `print(pred.summary())` |
 | `cbPen(cb)` | `dl.cbpen(cb)` |
+| `attrdl(x, cb, cases, model, cen=mmt)` (Gasparrini script) | `dl.attrdl(x, cb, cases, model, cen=mmt, name="cb")` |
+| `findmin(cb, model, from, to, by)` (Gasparrini script) | `dl.findmin(cb, model, from_=, to=, by=, name="cb")`, or `dl.mmt(...)` with CI |
+| `mixmeta(y ~ 1, S, method="reml")` (mixmeta package) | `dl.mixmeta(y, S, method="reml")` |
+| `mixmeta(y ~ x, S)` | `dl.mixmeta(y, S, X=np.column_stack([np.ones(m), x]))` |
+| `blup(mm, se=TRUE, pi=TRUE, vcov=TRUE)` | `mm.blup(se=True)` |
+| `predict(mm, newdata, se=TRUE)` | `mm.predict(Xnew, se=True)` |
+| `qtest(mm)`, `summary(mm)$i2stat` | `mm.qtest()` |
 | `chicagoNMMAPS` | `dl.datasets.chicago_nmmaps()` |
 
 ## Linking a basis to the coefficients of a fitted model

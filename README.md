@@ -104,12 +104,26 @@ dl.attrdl(chicago.temp, cb, chicago.death, model, type="an", dir="forw", cen=res
 
 `attrdl` is a port of `attrdl.R` (Gasparrini & Leone 2014): backward and forward perspectives, attributable numbers and fractions, daily or total, exposure ranges, reduced coefficients, and empirical intervals by simulation. `findmin` ports `findmin.R` (Tobías, Armstrong & Gasparrini 2017). Both match the R functions to 1e-8 or better on every deterministic quantity (`tests/test_attribution.py`); the simulation path is checked with the same coefficient draws in both languages. `mmt` and `attr_table` wrap them into the summaries used in practice, with one shared set of simulated coefficients so cold, heat and their extreme and moderate parts are mutually consistent. See `examples/attributable_risk.py`.
 
+## Two-stage designs: multivariate meta-analysis
+
+Multi-location studies pool location-specific reduced coefficients with a multivariate random-effects meta-analysis; in R that is the `mixmeta` package. `dlnmpy.meta` implements the same model (single random level: REML, ML or fixed effects; unstructured, diagonal or identity between-location covariance; meta-regression; BLUPs with prediction intervals; Cochran's Q and I²), validated against `mixmeta` on a 12-location simulation.
+
+```python
+y, S = dl.stack_reduced([dl.crossreduce(cb_i, fit_i, cen=18, name="cb") for ...])
+mm = dl.mixmeta(y, S, method="reml")                       # pooled coefficients, Psi, Q, I2
+mr = dl.mixmeta(y, S, X=np.column_stack([np.ones(m), mean_temp]))   # meta-regression
+pooled = dl.predict_reduced(cb_1, mm.coef_vec, mm.vcov, at=grid, cen=18)   # pooled curve (CrossPred)
+blups = mm.blup(se=True)                                    # location-specific BLUPs and covariances
+```
+
+Where the two disagree it is because `mixmeta` stopped at its iteration limit: on the identity-structure fit R reports non-convergence and the Python optimum has a higher restricted log-likelihood by 0.76. For all converged fits coefficients, covariances, `Psi`, log-likelihood, AIC/BIC, Q, I², BLUPs and predictions agree to 1e-5 or better (1e-13 for fixed effects). See `examples/two_stage.py`.
+
 ## Validation
 
 `tools/make_fixtures.R` runs the R package on the vignette examples and writes every intermediate object to `tests/fixtures/` as CSV and JSON: 32 basis-function specifications (with and without values outside the fitting range), 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The Python test-suite compares against these numbers with absolute tolerances of 1e-10 to 1e-12.
 
 ```
-pytest            # 70 tests
+pytest            # 79 tests
 ```
 
 A second, independent check lives in `tools/side_by_side.R` / `tools/side_by_side.py`: five complete analyses are run end to end in both languages, including the model fit, on data and specifications not used for the unit-test fixtures (the `drug` trial with OLS on exposure histories, the `nested` case-control study with conditional logistic regression, a logistic and a quasi-Poisson Chicago model with threshold, polynomial, strata and integer bases, 80% and 90% intervals, exposure-history matrices passed to `at`, and a four-city simulation with known truth). All 102 quantities compared agree to better than 1e-8; most to 1e-12. The report is printed by `python tools/side_by_side.py` and the test-suite runs it too.
@@ -150,7 +164,7 @@ examples/            vignette reproduction
 
 1. Cubic regression splines (`cr`) and a penalised fitter for `ps`/`cr` cross-bases (the R package delegates to `mgcv::gam`; the Python route is a REML or GCV fit with the penalty matrices from `cbpen`).
 2. Parametric-bootstrap intervals for any derived quantity, and a Bayesian route (same design matrix in PyMC/numpyro).
-3. Multivariate meta-analysis of reduced coefficients (the `mixmeta` step of two-stage designs).
+3. Multilevel meta-analysis (nested random levels, as in `mixmeta`'s extended framework) and longitudinal/repeated-measures structures.
 4. A Rust core with Python bindings, validated with the same fixtures.
 
 ## Prior work
@@ -163,6 +177,8 @@ Two earlier Python efforts exist: [aedessler/pydlnm](https://github.com/aedessle
 - Gasparrini A. Distributed lag linear and non-linear models in R: the package dlnm. *Journal of Statistical Software* 2011; 43(8):1-20.
 - Gasparrini A, Armstrong B. Reducing and meta-analysing estimates from distributed lag non-linear models. *BMC Medical Research Methodology* 2013; 13:1.
 - Gasparrini A. Modeling exposure-lag-response associations with distributed lag non-linear models. *Statistics in Medicine* 2014; 33(5):881-899.
+- Gasparrini A, Armstrong B, Kenward MG. Multivariate meta-analysis for non-linear and other multi-parameter associations. *Statistics in Medicine* 2012; 31(29):3821-3839.
+- Sera F, Armstrong B, Blangiardo M, Gasparrini A. An extended mixed-effects framework for meta-analysis. *Statistics in Medicine* 2019; 38(29):5429-5444.
 - Gasparrini A, Leone M. Attributable risk from distributed lag models. *BMC Medical Research Methodology* 2014; 14:55.
 - Tobías A, Armstrong B, Gasparrini A. Investigating uncertainty in the minimum mortality temperature. *Epidemiology* 2017; 28(1):72-76.
 - Gasparrini A, Scheipl F, Armstrong B, Kenward MG. A penalized framework for distributed lag non-linear models. *Biometrics* 2017; 73(3):938-948.

@@ -17,7 +17,7 @@ Typical workflow::
     pred.plot("overall")
 """
 
-from . import attribution, basis, datasets
+from . import attribution, basis, datasets, meta
 from ._rcompat import pretty, quantile7
 from .basis import bs, integer, lin, ns, poly, ps, strata, thr
 from .core import CrossBasis, OneBasis, crossbasis, onebasis
@@ -27,8 +27,9 @@ from .model import design_matrix, extract_coef_vcov, fit_clogit, fit_glm, get_li
 from .penalty import cbpen
 from .predict import CrossPred, CrossReduce, crosspred, crossreduce
 from .attribution import attr_table, attrdl, findmin, mmt
+from .meta import MixMeta, mixmeta, predict_reduced, stack_reduced
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "onebasis", "crossbasis", "crosspred", "crossreduce", "exphist", "logknots",
@@ -36,5 +37,5 @@ __all__ = [
     "lin", "poly", "strata", "thr", "integer", "ns", "bs", "ps",
     "lag_matrix", "mklag", "seqlag", "fit_glm", "fit_clogit", "design_matrix", "extract_coef_vcov",
     "get_link", "pretty", "quantile7", "basis", "datasets", "attribution",
-    "attrdl", "findmin", "mmt", "attr_table",
+    "attrdl", "findmin", "mmt", "attr_table", "meta", "mixmeta", "MixMeta", "predict_reduced", "stack_reduced",
 ]
