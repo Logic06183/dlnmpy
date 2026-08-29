@@ -1,0 +1,16 @@
+# conda environment for working with dlnmpy
+#   conda env create -f environment.yml && conda activate dlnmpy
+name: dlnmpy
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.9
+  - numpy>=1.22
+  - scipy>=1.8
+  - pandas>=1.4
+  - statsmodels>=0.13
+  - matplotlib>=3.5
+  - pytest
+  - pip
+  - pip:
+      - git+https://github.com/Logic06183/dlnmpy.git

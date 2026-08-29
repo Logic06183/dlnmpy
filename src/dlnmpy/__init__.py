@@ -29,7 +29,7 @@ from .predict import CrossPred, CrossReduce, crosspred, crossreduce
 from .attribution import attr_table, attrdl, findmin, mmt
 from .meta import MixMeta, mixmeta, predict_reduced, stack_reduced
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 __all__ = [
     "onebasis", "crossbasis", "crosspred", "crossreduce", "exphist", "logknots",

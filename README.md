@@ -19,7 +19,15 @@ git clone https://github.com/Logic06183/dlnmpy.git && cd dlnmpy
 pip install -e ".[dev]"
 ```
 
-Requires Python 3.9+, numpy, scipy and pandas. `statsmodels` is needed to fit models through `fit_glm` and `matplotlib` for plotting; both are optional.
+With conda, create the environment from the file in the repo (conda-forge packages plus dlnmpy from GitHub):
+
+```bash
+conda env create -f environment.yml && conda activate dlnmpy
+```
+
+or add the pip line to an existing environment. A conda-forge recipe is in `conda/`; it can be submitted once the package is on PyPI.
+
+Requires Python 3.9+, numpy, scipy and pandas. `statsmodels` is needed to fit models through `fit_glm` and `matplotlib` for plotting; both are optional. The example datasets (`chicagoNMMAPS`, `drug`, `nested`) ship inside the package, so nothing from R is needed at any point; `dlnmpy.datasets.simulate_cities()` generates multi-location data for the two-stage examples.
 
 ## Quick start
 

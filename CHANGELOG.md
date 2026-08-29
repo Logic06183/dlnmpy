@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2 (2026-08-29)
+
+`datasets.simulate_cities()` (pure-Python multi-location simulator); the two-stage example no longer reads a file from the test fixtures. `environment.yml` and a conda-forge recipe skeleton in `conda/`.
+
 ## 0.3.1 (2026-08-29)
 
 Plot labels now follow R: for `contour` and `3d`, `ylab` labels the lag axis and the new `zlab` labels the outcome (colour bar / z axis). `ns` and `bs` warn, as R does, when `df` is too small and the fallback is used.

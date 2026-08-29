@@ -2,21 +2,21 @@
 the exposure-response dimension, pooled by multivariate meta-analysis
 (Gasparrini, Armstrong & Kenward 2012; Gasparrini et al. 2015 Lancet).
 
-Uses the 12 simulated locations in tests/fixtures/meta_sim.csv.
+Uses 12 locations simulated by dlnmpy.datasets.simulate_cities (no external
+data needed).
 """
 
 from pathlib import Path
 
 import matplotlib
 import numpy as np
-import pandas as pd
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 import dlnmpy as dl  # noqa: E402
 
-sim = pd.read_csv(Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "meta_sim.csv")
+sim = dl.datasets.simulate_cities(n_cities=12, n_days=2000, seed=1)
 knots, bk, cen = [8, 15, 22], [-5, 40], 18
 
 # ---- stage 1: one DLNM per location, reduced to the predictor space ----------

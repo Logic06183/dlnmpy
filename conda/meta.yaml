@@ -1,0 +1,51 @@
+# Recipe for conda-forge (submit to conda-forge/staged-recipes once the
+# package is on PyPI; replace the sha256 with the one of the sdist).
+{% set name = "dlnmpy" %}
+{% set version = "0.3.2" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: <fill in from PyPI>
+
+build:
+  noarch: python
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+
+requirements:
+  host:
+    - python >=3.9
+    - pip
+    - setuptools >=68
+  run:
+    - python >=3.9
+    - numpy >=1.22
+    - scipy >=1.8
+    - pandas >=1.4
+
+test:
+  imports:
+    - dlnmpy
+  requires:
+    - pytest
+    - statsmodels
+    - matplotlib
+  source_files:
+    - tests
+  commands:
+    - pytest -q tests -k "not side_by_side"
+
+about:
+  home: https://github.com/Logic06183/dlnmpy
+  license: GPL-2.0-or-later
+  license_file: LICENSE
+  summary: Distributed lag non-linear models (DLNM) in Python, an R-validated port of the dlnm package
+  doc_url: https://github.com/Logic06183/dlnmpy/tree/main/docs
+
+extra:
+  recipe-maintainers:
+    - Logic06183
