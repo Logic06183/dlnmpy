@@ -13,9 +13,9 @@ DLNMs are the standard method for exposure-lag-response associations in environm
 ## Installation
 
 ```bash
-pip install git+https://github.com/craigparker/dlnmpy.git
+pip install git+https://github.com/Logic06183/dlnmpy.git
 # or, for development
-git clone https://github.com/craigparker/dlnmpy.git && cd dlnmpy
+git clone https://github.com/Logic06183/dlnmpy.git && cd dlnmpy
 pip install -e ".[dev]"
 ```
 
