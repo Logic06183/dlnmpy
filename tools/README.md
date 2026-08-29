@@ -1,0 +1,1 @@
+`make_fixtures.R` runs the R package `dlnm` on the vignette examples and writes reference outputs to `tests/fixtures/`. Run from the repository root with `Rscript tools/make_fixtures.R`. See `docs/porting-guide.md` for the file formats.
