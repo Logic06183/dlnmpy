@@ -156,7 +156,9 @@ from the author's [public code and data](https://github.com/gasparrini/2015_gasp
 | Attributable fraction, cold  | **8.63%** (8.13-9.12) | 8.63% (8.13-9.12) |
 | Attributable fraction, heat  | **0.31%** (0.27-0.34) | 0.31% (0.27-0.34) |
 
-These intervals come from replaying R's own simulated draws through `attrdl(..., coefsim=)`, so the comparison is deterministic; the example script draws its own and so differs in the third digit by Monte Carlo error. The minimum-mortality percentile matches as an exact integer in all 10 regions; the reduced coefficients agree to 1e-13 and the attributable fractions to 4e-05 percentage points. See [docs/validation.md](docs/validation.md) for the stage-by-stage agreement and for the two places where it is looser than machine precision (R's default `glm` convergence tolerance, and a deliberately overparameterised meta-regression).
+These intervals come from replaying R's own simulated draws through `attrdl(..., coefsim=)`, so the comparison is deterministic; the example script draws its own and so differs in the third digit by Monte Carlo error. `examples/bmcmrm_2013.py` likewise reproduces Gasparrini & Armstrong (2013), the methodological paper behind this two-stage design: minimum-mortality temperature 17.1 °C, pooled RR 1.101 (1.079-1.124) at 22 °C and 1.309 (1.245-1.376) at 0 °C, I² of 63.8/16.4/63.5%, and all three QAIC model-comparison totals.
+
+The minimum-mortality percentile matches as an exact integer in all 10 regions; the reduced coefficients agree to 1e-13 and the attributable fractions to 4e-05 percentage points. See [docs/validation.md](docs/validation.md) for the stage-by-stage agreement and for the two places where it is looser than machine precision (R's default `glm` convergence tolerance, and a deliberately overparameterised meta-regression).
 
 ### Unit fixtures
 

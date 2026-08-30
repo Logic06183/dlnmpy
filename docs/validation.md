@@ -75,6 +75,67 @@ Both are cosmetic, and both will bite a line-by-line translation:
   slopes), and *outcome-major* in `mvmeta`. The `(p, k)` coefficient matrix is
   the same in all three: `mvmeta`'s `$coefficients` matches `MixMeta.coef`.
 
+## Gasparrini & Armstrong (2013) *BMC Medical Research Methodology*
+
+> Gasparrini A, Armstrong B. Reducing and meta-analysing estimates from
+> distributed lag non-linear models. *BMC Medical Research Methodology*
+> 2013;**13**:1.
+
+The methodological paper behind the two-stage design, with code and data at
+[gasparrini/2013_gasparrini_BMCmrm_Rcodedata](https://github.com/gasparrini/2013_gasparrini_BMCmrm_Rcodedata).
+`examples/bmcmrm_2013.py` translates it. Same 10 regions as the Lancet example
+but a different question, so it covers what that one does not: `crossreduce`
+in its overall *and* predictor-specific (`type="var"`) forms, three competing
+lag specifications compared by QAIC, random- and fixed-effects pooling,
+Cochran's Q and I², meta-regression on latitude, and prediction from pooled
+coefficients through a `onebasis`.
+
+### Result
+
+|                                   | dlnmpy                | paper / R             |
+|-----------------------------------|-----------------------|-----------------------|
+| Minimum-mortality temperature     | **17.1 °C**           | 17.1 °C               |
+| Pooled RR at 22 °C                | **1.101** (1.079-1.124) | 1.101 (1.079-1.124) |
+| Pooled RR at 0 °C                 | **1.309** (1.245-1.376) | 1.309 (1.245-1.376) |
+| I², overall / at 22 °C / at 0 °C  | **63.8 / 16.4 / 63.5 %** | 63.8 / 16.4 / 63.5 % |
+| QAIC, B-spline lag 0-21           | **402827.3**          | 402827.3              |
+| QAIC, constant lag 0-3            | **406212.0**          | 406212.0              |
+| QAIC, constant lag 0-21           | **405966.3**          | 405966.3              |
+
+Comparing every intermediate against R — the reduced coefficients and
+covariances for all five reductions in all ten regions, the pooled
+coefficients, `Psi`, log-likelihoods, Q, degrees of freedom and p-values, the
+fixed-effects and meta-regression fits, and the pooled predictions — gives
+**67 of 68 quantities agreeing to between 1e-5 and 1e-15**. The exception is
+the log-likelihood of one pooled fit, where Python reaches a *higher* optimum
+than R (168.244068 against 168.244063): R's own optimiser stopping on a flat
+surface.
+
+As in the Lancet example, comparing against the published script as written
+shows larger differences that are not the port's: R's `glm` defaults to
+`epsilon = 1e-8`, and the script uses `mvmeta`, which reports a REML
+log-likelihood differing from `mixmeta`'s by a constant that depends on the
+dimensions (4.6052 at k=4, 5.7565 at k=5 with an intercept-only model). With
+`glm.control(epsilon = 1e-14)` and `mixmeta`, the 16 apparent discrepancies
+reduce to the single one above.
+
+### Why the QAIC fix mattered
+
+This paper selects its lag specification by QAIC, so it is a direct test of
+`uncertainty.qaic`, which until 0.5.0 read the log-likelihood from
+statsmodels' `results.llf` — divided by the dispersion for a quasi family.
+Rerunning this comparison with the old implementation:
+
+| model | QAIC (0.5.0) | QAIC (before) |
+|---|---|---|
+| B-spline of lag 0-21 (the paper's choice) | **402827.3** | 368280.5 |
+| constant of lag 0-3 | 406212.0 | **350059.0** |
+| constant of lag 0-21 | 405966.3 | 351008.5 |
+
+The old criterion selected the constant lag 0-3 model, reversing the paper's
+conclusion. Dividing the fit term by phi rewards the more over-dispersed, and
+so the more under-fitted, specification.
+
 ## Missing data
 
 Scattered missing values in the exposure and the outcome propagate exactly as

@@ -2,6 +2,8 @@
 
 ## 0.5.0 (2026-08-30)
 
+Also reproduces Gasparrini & Armstrong (2013) *BMC Med Res Methodol* 13:1, the methodological paper behind the two-stage design (`examples/bmcmrm_2013.py`): minimum-mortality temperature 17.1 °C, pooled RR 1.101 (1.079-1.124) at 22 °C and 1.309 (1.245-1.376) at 0 °C, I² of 63.8/16.4/63.5%, and all three QAIC totals; 67 of 68 intermediates agree with R to 1e-5..1e-15. That paper selects its lag specification by QAIC, and the pre-0.5.0 implementation would have reversed its published conclusion.
+
 Bug-fix release from a systematic audit against R (`dlnm` 2.4.10, `splines`, `mgcv`, `mixmeta`, `survival`), covering the basis functions, the prediction machinery, model fitting, meta-analysis, attribution and plotting. Everything below was verified against R and has a regression test that fails without the fix.
 
 **Silent wrong answers**
