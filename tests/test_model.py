@@ -58,3 +58,44 @@ def test_extract_by_r_style_names():
     coef, vcov = dl.extract_coef_vcov(Fake(), "cb", "cb", 2)
     assert_close(coef, [2.0, 3.0])
     assert vcov.shape == (2, 2)
+
+
+def test_basis_name_is_not_a_prefix_match(chicago):
+    """A basis called 'cb' must not also match the columns of 'cb2'."""
+    pytest.importorskip("statsmodels")
+    cb = dl.crossbasis(chicago.temp, lag=5, argvar={"fun": "lin"}, arglag={"fun": "strata", "breaks": 2})
+    cb2 = dl.crossbasis(chicago.pm10, lag=5, argvar={"fun": "lin"}, arglag={"fun": "strata", "breaks": 2})
+    X = dl.design_matrix(chicago, ("cb", cb), ("cb2", cb2), intercept=False)
+    fit = dl.fit_glm("death ~ " + " + ".join(X.columns) + " + C(dow)", chicago.join(X),
+                     family="quasipoisson")
+    for name, basis in (("cb", cb), ("cb2", cb2)):
+        coef, vcov = dl.extract_coef_vcov(fit, name, "cb", basis.ncol)
+        expected = fit.params[[c for c in fit.params.index if c.startswith(name + "_")]].to_numpy()
+        assert_close(coef, expected, atol=0)
+        assert vcov.shape == (basis.ncol, basis.ncol)
+    # and prediction picks the right block
+    assert dl.crosspred(cb2, fit, name="cb2", by=20).allfit.size > 0
+
+
+def test_to_dataframe_keeps_the_input_index(chicago):
+    """data.join(cb.to_dataframe(...)) must align when data has been filtered
+    or grouped and so no longer has a default RangeIndex."""
+    import pandas as pd
+
+    sub = chicago[chicago.year >= 1996]          # index starts at 1826
+    assert sub.index[0] != 0
+    cb = dl.crossbasis(sub.temp, lag=10, argvar={"fun": "ns", "df": 4}, arglag={"fun": "ns", "df": 3})
+    ob = dl.onebasis(sub.temp, "ns", df=4)
+    assert list(cb.to_dataframe("cb").index) == list(sub.index)
+    assert list(ob.to_dataframe("ob").index) == list(sub.index)
+
+    joined = sub.join(cb.to_dataframe("cb"))
+    # only the leading `lag` rows are missing, not every row
+    assert int(joined.filter(like="cb_").isna().all(axis=1).sum()) == 10
+    assert_close(joined.filter(like="cb_").to_numpy()[10:], cb.matrix[10:], atol=0)
+
+    # a numpy input has no index, and an explicit index still wins
+    plain = dl.crossbasis(sub.temp.to_numpy(), lag=10, argvar={"fun": "ns", "df": 4},
+                          arglag={"fun": "ns", "df": 3})
+    assert isinstance(plain.to_dataframe("cb").index, pd.RangeIndex)
+    assert list(cb.to_dataframe("cb", index=sub.index[::-1]).index) == list(sub.index[::-1])

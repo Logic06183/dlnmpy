@@ -141,6 +141,25 @@ Where the two disagree it is because `mixmeta` stopped at its iteration limit: o
 
 ## Validation
 
+### A published analysis, reproduced whole
+
+`examples/lancet_2015.py` reproduces the England & Wales analysis of
+
+> Gasparrini A, Guo Y, Hashizume M, et al. Mortality risk attributable to high and low ambient temperature: a multicountry observational study. *The Lancet* 2015;**386**(9991):369-375.
+
+from the author's [public code and data](https://github.com/gasparrini/2015_gasparrini_Lancet_Rcodedata) — 10 regions, 1993-2006, 7,573,716 deaths — running all five stages: a DLNM per region, reduction to the overall cumulative curve, multivariate meta-regression and BLUPs, the minimum-mortality temperature, and attributable deaths with empirical intervals.
+
+|                              | dlnmpy                | R                 |
+|------------------------------|-----------------------|-------------------|
+| Minimum-mortality percentile | **89.5**              | 89.5              |
+| Attributable fraction, total | **8.94%** (8.42-9.43) | 8.94% (8.42-9.43) |
+| Attributable fraction, cold  | **8.63%** (8.13-9.12) | 8.63% (8.13-9.12) |
+| Attributable fraction, heat  | **0.31%** (0.27-0.34) | 0.31% (0.27-0.34) |
+
+The minimum-mortality percentile matches as an exact integer in all 10 regions; the reduced coefficients agree to 1e-13 and the attributable fractions to 4e-05 percentage points. See [docs/validation.md](docs/validation.md) for the stage-by-stage agreement and for the two places where it is looser than machine precision (R's default `glm` convergence tolerance, and a deliberately overparameterised meta-regression).
+
+### Unit fixtures
+
 `tools/make_fixtures.R` runs the R package on the vignette examples and writes every intermediate object to `tests/fixtures/` as CSV and JSON: 32 basis-function specifications (with and without values outside the fitting range), 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The Python test-suite compares against these numbers with absolute tolerances of 1e-10 to 1e-12.
 
 ```

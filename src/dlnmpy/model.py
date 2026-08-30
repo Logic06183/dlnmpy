@@ -46,10 +46,14 @@ def _match(names: list[str], name: str, kind: str, ncol: int) -> list[int]:
         exact = [i for i, n in enumerate(names) if n == name]
         if exact:
             return exact
+    # the separator between the basis name and the column label is optional
+    # (R pastes them directly: "cbv1.l1"; to_dataframe uses "cb_v1_l1"), but
+    # it must be a separator: without this anchor the name "cb" also matches
+    # the columns of a second basis called "cb2".
     if kind == "cb":
-        pat = re.compile(rf"^{esc}\S*?v(\d+)[._]l(\d+)$")
+        pat = re.compile(rf"^{esc}[._]?v(\d+)[._]l(\d+)$")
     else:
-        pat = re.compile(rf"^{esc}\S*?b(\d+)$")
+        pat = re.compile(rf"^{esc}[._]?b(\d+)$")
     found = []
     for i, n in enumerate(names):
         m = pat.match(n)
