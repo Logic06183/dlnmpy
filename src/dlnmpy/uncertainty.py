@@ -17,6 +17,7 @@ Also here: QAIC for over-dispersed count models (Peng, Dominici & Louis
 from __future__ import annotations
 
 import numpy as np
+from scipy.special import gammaln
 
 from .attribution import simulate_coef
 from .predict import CrossPred, crosspred
@@ -83,10 +84,23 @@ def qaic(results) -> float:
     """Quasi-AIC for an over-dispersed Poisson GLM fitted with statsmodels:
     ``-2 * loglik(Poisson) + 2 * phi * k`` with ``phi`` the estimated
     dispersion (Gasparrini, Armstrong & Kenward 2010; Peng et al. 2006).
-    For a fit with ``scale = 1`` this reduces to the AIC."""
-    llf = float(results.llf)
+    For a fit with ``scale = 1`` this reduces to the AIC.
+
+    The Poisson log-likelihood is evaluated at the fitted values rather than
+    read off ``results.llf``: for a quasi family statsmodels divides the
+    log-likelihood by the estimated dispersion, so ``results.llf`` is
+    ``loglik / phi``. Using it would scale ``-2 * loglik`` by ``1 / phi``,
+    and because phi differs between candidate models the error does not
+    cancel in a comparison -- it favours the more over-dispersed (typically
+    the under-fitted) model. This is also why R's ``logLik()`` returns NA
+    for a quasipoisson glm and the reference implementations compute
+    ``sum(dpois(y, fitted, log = TRUE))`` by hand.
+    """
     phi = float(getattr(results, "scale", 1.0))
     k = int(np.size(results.params))
+    mu = np.asarray(results.fittedvalues, dtype=float)
+    y = np.asarray(results.model.endog, dtype=float)
+    llf = float(np.sum(y * np.log(mu) - mu - gammaln(y + 1.0)))
     return -2 * llf + 2 * phi * k
 
 

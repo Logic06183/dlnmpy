@@ -1,5 +1,8 @@
+import json
+
 import numpy as np
 import pytest
+from conftest import FIX, assert_close
 
 import dlnmpy as dl
 from dlnmpy.uncertainty import bootstrap, bootstrap_ci, empirical_ci, model_grid, qaic, simulate_pred
@@ -46,5 +49,53 @@ def test_qaic_and_model_grid(chicago):
     grid = model_grid(specs, fit)
     assert list(grid.columns[:2]) == ["lag", "df_var"]
     assert grid["delta"].iloc[0] == 0 and grid["criterion"].is_monotonic_increasing
-    res = grid["results"].iloc[0]
-    assert np.isclose(qaic(res), -2 * res.llf + 2 * res.scale * res.params.size)
+
+
+def _fit_spec(chicago, nst, spec, family="quasipoisson"):
+    cb = dl.crossbasis(chicago.temp, lag=spec["lag"], argvar={"fun": "ns", "df": spec["df_var"]},
+                       arglag={"fun": "ns", "df": spec["df_lag"]})
+    X = dl.design_matrix(chicago, ("cb", cb), ("nst", nst), intercept=False)
+    return dl.fit_glm("death ~ " + " + ".join(X.columns) + " + C(dow)", chicago.join(X), family=family)
+
+
+def test_qaic_matches_r(chicago):
+    """QAIC against R (tools/make_fixtures_qaic.R).
+
+    R's logLik() is NA for a quasipoisson glm, so the reference value is
+    -2*sum(dpois(y, fitted, log=TRUE)) + 2*phi*k. statsmodels' results.llf
+    is that log-likelihood divided by phi, so using it would scale the fit
+    term by 1/phi -- see the note in dlnmpy.uncertainty.qaic.
+    """
+    pytest.importorskip("statsmodels")
+    with open(FIX / "qaic.json") as f:
+        r = json.load(f)
+    nst = dl.onebasis(chicago.time, "ns", df=7 * 14)
+
+    for spec in r["quasipoisson"]:
+        res = _fit_spec(chicago, nst, spec)
+        assert res.params.size == spec["rank"], f"parameter count differs from R for {spec}"
+        assert_close(res.scale, spec["dispersion"], atol=1e-9, msg=f"dispersion {spec}")
+        assert_close(qaic(res), spec["qaic"], atol=1e-6, msg=f"qaic {spec}")
+
+    # with a known scale QAIC is the AIC, which R reports directly
+    p = r["poisson"]
+    res = _fit_spec(chicago, nst, p, family="poisson")
+    assert_close(qaic(res), p["aic"], atol=1e-6, msg="poisson qaic == R AIC")
+
+
+def test_model_grid_ranking_matches_r(chicago):
+    """The ranking, not just the values: a criterion that scales the
+    log-likelihood by the dispersion reverses this grid, because phi is
+    largest for the most under-fitted specification."""
+    pytest.importorskip("statsmodels")
+    with open(FIX / "qaic.json") as f:
+        r = json.load(f)
+    nst = dl.onebasis(chicago.time, "ns", df=7 * 14)
+    specs = [{k: s[k] for k in ("lag", "df_var", "df_lag")} for s in r["quasipoisson"]]
+    grid = model_grid(specs, lambda s: _fit_spec(chicago, nst, s))
+
+    r_order = [specs[i] for i in r["order"]]
+    py_order = grid[["lag", "df_var", "df_lag"]].to_dict("records")
+    assert py_order == r_order, f"ranking differs from R\nR : {r_order}\npy: {py_order}"
+    assert_close(grid["criterion"].to_numpy(),
+                 [r["quasipoisson"][i]["qaic"] for i in r["order"]], atol=1e-6, msg="ranked QAIC")
