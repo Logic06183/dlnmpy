@@ -27,7 +27,14 @@ def report(section, name, a, b, tol):
         rows.append((section, name, f"SHAPE {a.shape} vs {b.shape}", "FAIL"))
         return
     d = float(np.nanmax(np.abs(a - b))) if a.size else 0.0
-    rows.append((section, name, f"{d:.2e}", "ok" if d <= tol else "FAIL"))
+    # scale the tolerance by the magnitude of the R value. A flat absolute
+    # bound asks for ~10 significant figures from quantities as large as the
+    # nested vcov (entries up to 35, built from a finite-difference Hessian),
+    # which failed on arm64/Accelerate and passed on x86_64 -- the comparison
+    # was platform-dependent rather than wrong. Read as a relative tolerance
+    # this is *stricter* for the many small-magnitude quantities.
+    ok = bool(np.all(np.abs(a - b) <= 1e-10 + tol * np.abs(b))) if a.size else True
+    rows.append((section, name, f"{d:.2e}", "ok" if ok else "FAIL"))
 
 
 def compare_pred(section, p, r, tol=1e-8):
