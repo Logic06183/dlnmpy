@@ -106,6 +106,7 @@ class OneBasis(_MatrixLike):
     attrs: dict = field(default_factory=dict)
     range: tuple = (np.nan, np.nan)
     cen: Any = None
+    index: Any = None
 
     @property
     def colnames(self) -> list[str]:
@@ -127,9 +128,17 @@ class OneBasis(_MatrixLike):
         basis, _ = _apply_fun(self.fun, x, self.pred_args())
         return basis
 
-    def to_dataframe(self, name: str = "b"):
+    def to_dataframe(self, name: str = "b", index=None):
+        """DataFrame of the basis columns.
+
+        The index of the pandas object the basis was built from is carried
+        over, so ``data.join(basis.to_dataframe(...))`` aligns even when
+        ``data`` does not have a default RangeIndex. Pass ``index`` to
+        override it.
+        """
         import pandas as pd
-        return pd.DataFrame(self.matrix, columns=[f"{name}_{c}" for c in self.colnames])
+        idx = index if index is not None else self.index
+        return pd.DataFrame(self.matrix, columns=[f"{name}_{c}" for c in self.colnames], index=idx)
 
     def __repr__(self):
         return f"OneBasis(fun={self.fun_name!r}, shape={self.shape}, attrs={_short(self.attrs)})"
@@ -149,12 +158,13 @@ def onebasis(x, fun="ns", cen=None, **kwargs) -> OneBasis:
     **kwargs
         Arguments passed to the basis function (R spellings accepted).
     """
+    index = getattr(x, "index", None)
     x = np.asarray(x, dtype=float).ravel()
     rng = (float(np.nanmin(x)), float(np.nanmax(x)))
     args = normalise_args(kwargs)
     args.pop("cen", None)
     basis, attrs = _apply_fun(fun, x, args)
-    return OneBasis(matrix=basis, fun=fun, attrs=attrs, range=rng, cen=cen)
+    return OneBasis(matrix=basis, fun=fun, attrs=attrs, range=rng, cen=cen, index=index)
 
 
 # ----------------------------------------------------------------------------
@@ -184,18 +194,26 @@ class CrossBasis(_MatrixLike):
     argvar: dict
     arglag: dict
     group: int | None = None
+    index: Any = None
 
     @property
     def colnames(self) -> list[str]:
         vx, vl = self.df
         return [f"v{v + 1}.l{l + 1}" for v in range(vx) for l in range(vl)]
 
-    def to_dataframe(self, name: str = "cb"):
+    def to_dataframe(self, name: str = "cb", index=None):
         """Return a DataFrame with columns ``{name}_v{i}_l{j}``, ready to be
-        joined to a data frame and used in a statsmodels formula."""
+        joined to a data frame and used in a statsmodels formula.
+
+        The index of the pandas object the cross-basis was built from is
+        carried over, so ``data.join(cb.to_dataframe("cb"))`` aligns even
+        when ``data`` does not have a default RangeIndex (after a groupby or
+        a filter, say). Pass ``index`` to override it.
+        """
         import pandas as pd
         cols = [f"{name}_{c.replace('.', '_')}" for c in self.colnames]
-        return pd.DataFrame(self.matrix, columns=cols)
+        idx = index if index is not None else self.index
+        return pd.DataFrame(self.matrix, columns=cols, index=idx)
 
     def basis_var(self, x) -> np.ndarray:
         """Predictor-space basis evaluated at ``x``."""
@@ -252,6 +270,7 @@ def crossbasis(x, lag=None, argvar=None, arglag=None, group=None) -> CrossBasis:
     """
     argvar = normalise_args(argvar)
     arglag = normalise_args(arglag)
+    index = getattr(x, "index", None)
     x = np.asarray(x, dtype=float)
     if x.ndim == 1:
         x = x[:, None]
@@ -300,7 +319,8 @@ def crossbasis(x, lag=None, argvar=None, arglag=None, group=None) -> CrossBasis:
     return CrossBasis(matrix=cb, df=(vx, vl),
                       range=(float(np.nanmin(x)), float(np.nanmax(x))),
                       lag=lag, argvar=av, arglag=al,
-                      group=None if group is None else int(np.unique(group).size))
+                      group=None if group is None else int(np.unique(group).size),
+                      index=index)
 
 
 def _select_pred_args(fun, attrs: dict) -> dict:

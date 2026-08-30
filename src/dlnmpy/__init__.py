@@ -10,9 +10,10 @@ Typical workflow::
     df = dl.datasets.chicago_nmmaps()
     cb = dl.crossbasis(df["temp"], lag=21, argvar={"fun": "ns", "df": 4},
                        arglag={"fun": "ns", "df": 4})
-    X = df.join(cb.to_dataframe("cb"))
-    fit = dl.fit_glm("death ~ " + " + ".join(cb.to_dataframe("cb").columns)
-                     + " + dow + ns_time", X, family="quasipoisson")
+    ns_time = dl.onebasis(df["time"], "ns", df=7 * 14)
+    X = dl.design_matrix(df, ("cb", cb), ("ns_time", ns_time), intercept=False)
+    fit = dl.fit_glm("death ~ " + " + ".join(X.columns) + " + C(dow)",
+                     df.join(X), family="quasipoisson")
     pred = dl.crosspred(cb, fit, cen=21, by=1, name="cb")
     pred.plot("overall")
 """
@@ -31,7 +32,7 @@ from .meta import MixMeta, mixmeta, predict_reduced, stack_reduced
 from .penalized import PenalizedGLMResults, fit_pgam, fit_pglm
 from .uncertainty import bootstrap, empirical_ci, model_grid, qaic, simulate_pred
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 __all__ = [
     "onebasis", "crossbasis", "crosspred", "crossreduce", "exphist", "logknots",

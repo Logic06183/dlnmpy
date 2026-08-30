@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.2 (2026-08-30)
+
+Reproduces Gasparrini et al. (2015) *Lancet* end to end on the author's published England & Wales data (`examples/lancet_2015.py`, [docs/validation.md](docs/validation.md)): identical minimum-mortality percentiles and attributable fractions, reduced coefficients to 1e-13.
+
+Two fixes found while doing it:
+
+- `to_dataframe()` now carries the index of the pandas object the basis was built from, so `data.join(cb.to_dataframe("cb"))` aligns when `data` has been filtered or grouped and no longer has a default `RangeIndex`. Previously the result was silently all-NaN — the join succeeded and the row count was unchanged, so nothing signalled the problem. This is the central pattern of a two-stage multi-location analysis. Pass `index=` to override.
+- Basis names are matched with an anchored separator, so a basis called `cb` no longer also matches the columns of a second basis called `cb2`. `extract_coef_vcov`/`crosspred` raised "found 4 coefficients matching basis 'cb'" for that perfectly reasonable naming.
+
+
 ## 0.4.1 (2026-08-30)
 
 Fixes `uncertainty.qaic`, which read the log-likelihood from `results.llf`. For a quasi family statsmodels divides the log-likelihood by the estimated dispersion, so the fit term was scaled by `1/phi`. Because phi differs between candidate models the error did not cancel in a comparison: it favoured the more over-dispersed, typically under-fitted, specification and could reverse the ranking returned by `model_grid`. The Poisson log-likelihood is now evaluated at the fitted values, as in the reference R implementations (R's `logLik()` is NA for quasipoisson for the same reason). New fixtures from R (`tools/make_fixtures_qaic.R`) pin both the QAIC values and the ranking of a six-model grid; the previous test asserted the implementation against itself and so could not detect this.

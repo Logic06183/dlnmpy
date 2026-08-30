@@ -8,3 +8,4 @@ dist/
 examples/figures/*.png
 !examples/figures/summary_colour.png
 .ipynb_checkpoints/
+examples/regEngWales.csv
