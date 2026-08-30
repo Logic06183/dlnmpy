@@ -27,12 +27,12 @@ from .lag import exphist, lag_matrix, mklag, seqlag
 from .model import design_matrix, extract_coef_vcov, fit_clogit, fit_glm, get_link
 from .penalty import cbpen
 from .predict import CrossPred, CrossReduce, crosspred, crossreduce
-from .attribution import attr_table, attrdl, findmin, mmt
+from .attribution import attr_table, attrdl, findmin, mmt, simulate_coef
 from .meta import MixMeta, mixmeta, predict_reduced, stack_reduced
 from .penalized import PenalizedGLMResults, fit_pgam, fit_pglm
 from .uncertainty import bootstrap, empirical_ci, model_grid, qaic, simulate_pred
 
-__version__ = "0.4.2"
+__version__ = "0.5.0"
 
 __all__ = [
     "onebasis", "crossbasis", "crosspred", "crossreduce", "exphist", "logknots",
@@ -41,5 +41,5 @@ __all__ = [
     "fit_pgam", "fit_pglm", "PenalizedGLMResults", "bootstrap", "empirical_ci", "model_grid", "qaic", "simulate_pred",
     "lag_matrix", "mklag", "seqlag", "fit_glm", "fit_clogit", "design_matrix", "extract_coef_vcov",
     "get_link", "pretty", "quantile7", "basis", "datasets", "attribution", "plot", "uncertainty",
-    "attrdl", "findmin", "mmt", "attr_table", "meta", "mixmeta", "MixMeta", "predict_reduced", "stack_reduced",
+    "attrdl", "findmin", "mmt", "attr_table", "simulate_coef", "meta", "mixmeta", "MixMeta", "predict_reduced", "stack_reduced",
 ]

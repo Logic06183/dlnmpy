@@ -90,9 +90,12 @@ def get_link(model, model_link: str | None = None) -> str | None:
     link = getattr(fam, "link", None)
     if link is not None:
         cname = type(link).__name__.lower()
-        for cand in ("logit", "log", "identity", "probit", "cloglog", "inverse"):
+        # compound names first: "log" is a substring of "cloglog" and
+        # "loglog", so testing it earlier reports those as a log link and
+        # makes crosspred exponentiate them into relative risks
+        for cand in ("cloglog", "loglog", "logit", "log", "identity", "probit", "inverse"):
             if cand in cname:
-                return "log" if cname == "log" else cand
+                return cand
         return cname
     cname = type(m).__name__.lower()
     if cname in ("logit", "conditionallogit", "conditionalmnlogit"):
@@ -153,6 +156,7 @@ def aliased_columns(X, tol: float = 1e-7) -> list[int]:
 
 
 def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool = True,
+            offset=None, exposure=None, freq_weights=None, var_weights=None,
             **kwargs):
     """Fit a GLM with statsmodels' formula API.
 
@@ -163,6 +167,11 @@ def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool
     columns are removed before fitting (R reports them as ``NA``
     coefficients), which keeps the residual degrees of freedom, and hence
     the dispersion and standard errors, identical to R's.
+
+    ``offset``, ``exposure``, ``freq_weights`` and ``var_weights`` are
+    arguments of the model rather than of the fit, and are passed on as such;
+    ``offset`` is R's ``offset()`` term. They are named explicitly because
+    ``GLM.fit()`` accepts arbitrary keywords and would silently discard them.
     """
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
@@ -181,7 +190,9 @@ def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool
         family_obj, scale = sm.families.Binomial(), "X2"
     else:
         raise ValueError(f"unknown family '{family}'")
-    model = smf.glm(formula, data=data, family=family_obj, missing="drop")
+    model = smf.glm(formula, data=data, family=family_obj, missing="drop",
+                    offset=offset, exposure=exposure,
+                    freq_weights=freq_weights, var_weights=var_weights)
     if drop_aliased:
         bad = aliased_columns(model.exog)
         if bad:
@@ -190,7 +201,12 @@ def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool
             exog = pd.DataFrame(model.exog[:, keep], columns=[model.exog_names[i] for i in keep])
             endog = pd.Series(model.endog, name=model.endog_names)
             dropped = [model.exog_names[i] for i in bad]
-            model = sm.GLM(endog, exog, family=family_obj)
+            # these have already been subset by missing="drop" above
+            model = sm.GLM(endog, exog, family=family_obj,
+                           offset=getattr(model, "offset", None),
+                           exposure=getattr(model, "exposure", None),
+                           freq_weights=getattr(model, "freq_weights", None),
+                           var_weights=getattr(model, "var_weights", None))
             model.aliased = dropped  # names of the columns R would report as NA
     # R's glm.fit solves the IRLS weighted least squares by QR; statsmodels
     # defaults to a pseudo-inverse, which differs when the design is close to

@@ -156,14 +156,14 @@ from the author's [public code and data](https://github.com/gasparrini/2015_gasp
 | Attributable fraction, cold  | **8.63%** (8.13-9.12) | 8.63% (8.13-9.12) |
 | Attributable fraction, heat  | **0.31%** (0.27-0.34) | 0.31% (0.27-0.34) |
 
-The minimum-mortality percentile matches as an exact integer in all 10 regions; the reduced coefficients agree to 1e-13 and the attributable fractions to 4e-05 percentage points. See [docs/validation.md](docs/validation.md) for the stage-by-stage agreement and for the two places where it is looser than machine precision (R's default `glm` convergence tolerance, and a deliberately overparameterised meta-regression).
+These intervals come from replaying R's own simulated draws through `attrdl(..., coefsim=)`, so the comparison is deterministic; the example script draws its own and so differs in the third digit by Monte Carlo error. The minimum-mortality percentile matches as an exact integer in all 10 regions; the reduced coefficients agree to 1e-13 and the attributable fractions to 4e-05 percentage points. See [docs/validation.md](docs/validation.md) for the stage-by-stage agreement and for the two places where it is looser than machine precision (R's default `glm` convergence tolerance, and a deliberately overparameterised meta-regression).
 
 ### Unit fixtures
 
 `tools/make_fixtures.R` runs the R package on the vignette examples and writes every intermediate object to `tests/fixtures/` as CSV and JSON: 32 basis-function specifications (with and without values outside the fitting range), 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The Python test-suite compares against these numbers with absolute tolerances of 1e-10 to 1e-12.
 
 ```
-pytest            # 79 tests
+pytest            # 106 tests
 ```
 
 A second, independent check lives in `tools/side_by_side.R` / `tools/side_by_side.py`: five complete analyses are run end to end in both languages, including the model fit, on data and specifications not used for the unit-test fixtures (the `drug` trial with OLS on exposure histories, the `nested` case-control study with conditional logistic regression, a logistic and a quasi-Poisson Chicago model with threshold, polynomial, strata and integer bases, 80% and 90% intervals, exposure-history matrices passed to `at`, and a four-city simulation with known truth). All 102 quantities compared agree to better than 1e-8; most to 1e-12. The report is printed by `python tools/side_by_side.py` and the test-suite runs it too.

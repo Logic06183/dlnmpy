@@ -282,7 +282,9 @@ def crossbasis(x, lag=None, argvar=None, arglag=None, group=None) -> CrossBasis:
 
     # basis for the predictor space
     varfun = argvar.pop("fun", "ns")
-    argvar.pop("cen", None)
+    # R keeps a cen given inside argvar as attr(cb, "argvar")$cen and mkcen()
+    # uses it as the default reference for every later crosspred/crossreduce
+    varcen = argvar.pop("cen", None)
     basisvar, attrvar = _apply_fun(varfun, x.ravel(order="F"), argvar)
 
     # basis for the lag space
@@ -314,7 +316,7 @@ def crossbasis(x, lag=None, argvar=None, arglag=None, group=None) -> CrossBasis:
         cb[:, vl * v: vl * (v + 1)] = mat @ basislag
 
     av = {"fun": varfun, **_select_pred_args(varfun, attrvar)}
-    av["cen"] = None
+    av["cen"] = varcen
     al = {"fun": lagfun, **_select_pred_args(lagfun, attrlag)}
     return CrossBasis(matrix=cb, df=(vx, vl),
                       range=(float(np.nanmin(x)), float(np.nanmax(x))),

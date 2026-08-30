@@ -27,7 +27,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import _splines
-from ._rcompat import median, quantile7
+from ._rcompat import quantile7
 
 __all__ = ["lin", "poly", "strata", "thr", "integer", "ns", "bs", "ps", "cr",
            "BASIS_FUNCTIONS", "PRED_ARGS", "get_basis_function"]
@@ -79,12 +79,17 @@ def strata(x, df: int = 1, breaks=None, ref: int = 1, intercept: bool = False):
     df = (0 if breaks is None else breaks.size) + intercept
     # cut(x, c(range[1]-0.0001, breaks, range[2]+0.0001), right=FALSE)
     edges = np.concatenate(([rng[0] - 0.0001], [] if breaks is None else breaks, [rng[1] + 0.0001]))
+    if np.unique(edges).size != edges.size:
+        # as R's cut() does. Reached when quantile breaks tie, e.g. a spike of
+        # zeros; without this the basis has an empty stratum, so an
+        # identically-zero column and a singular design, and nothing says so.
+        raise ValueError("'breaks' are not unique")
     cat = np.searchsorted(edges, x, side="right") - 1  # 0-based stratum, NaN -> -1 or len
     nlev = edges.size - 1
     basis = np.zeros((x.size, nlev))
     valid = (cat >= 0) & (cat < nlev) & ~np.isnan(x)
     basis[np.nonzero(valid)[0], cat[valid]] = 1.0
-    basis[np.isnan(x), :] = np.nan
+    basis[~valid, :] = np.nan  # cut() is NA outside the outer edges, not a zero row
     ref = int(ref)
     if ref not in range(0, basis.shape[1] + 1):
         raise ValueError("wrong value in 'ref' argument. See help('strata')")
@@ -110,7 +115,11 @@ def thr(x, thr_value=None, side=None, intercept: bool = False):
     the median of ``x``."""
     x = _asvec(x)
     if thr_value is None:
-        thr_value = np.array([median(x)])
+        # dlnm calls median(x) without na.rm, so any missing value makes the
+        # threshold - and the whole basis - NA. Dropping NaN here instead would
+        # silently give a different threshold, and different results, from the
+        # same R code.
+        thr_value = np.array([np.median(x)])
     else:
         thr_value = np.sort(np.atleast_1d(np.asarray(thr_value, dtype=float)))
     if side is None:

@@ -305,22 +305,32 @@ def ns(x, df=None, knots=None, intercept: bool = False, boundary_knots=None):
     return basis, attrs
 
 
-def _shove_knots(knots: np.ndarray, boundary_knots: np.ndarray) -> np.ndarray:
-    """R's "shoving 'interior' knots matching boundary knots to inside"."""
+def _shove_knots(knots: np.ndarray, boundary_knots: np.ndarray, strict: bool = True) -> np.ndarray:
+    """R's "shoving 'interior' knots matching boundary knots to inside".
+
+    When *every* interior knot coincides with a boundary knot, ``splines::ns``
+    stops but ``splines::bs`` only warns and leaves the knots alone; ``strict``
+    selects between the two. This is reached by any exposure with a floor
+    (zero-inflated rainfall, a detection limit), where the lower quantiles tie.
+    """
     knots = knots.copy()
     lr_eq = np.isin([knots.min(), knots.max()], boundary_knots)
-    if lr_eq[0]:
-        piv = boundary_knots[0]
+    if np.any(lr_eq):
+        warnings.warn("shoving 'interior' knots matching boundary knots to inside", stacklevel=2)
+    for side, piv in ((0, boundary_knots[0]), (1, boundary_knots[1])):
+        if not lr_eq[side]:
+            continue
+        where = "left" if side == 0 else "right"
         i = knots == piv
         if np.all(i):
-            raise ValueError("all interior knots match left boundary knot")
-        knots[i] = knots[i] + (knots[knots > piv].min() - piv) / 8
-    if lr_eq[1]:
-        piv = boundary_knots[1]
-        i = knots == piv
-        if np.all(i):
-            raise ValueError("all interior knots match right boundary knot")
-        knots[i] = knots[i] - (piv - knots[knots < piv].max()) / 8
+            if strict:
+                raise ValueError(f"all interior knots match {where} boundary knot")
+            warnings.warn(f"all interior knots match {where} boundary knot", stacklevel=2)
+            continue
+        if side == 0:
+            knots[i] = knots[i] + (knots[knots > piv].min() - piv) / 8
+        else:
+            knots[i] = knots[i] - (piv - knots[knots < piv].max()) / 8
     return knots
 
 
@@ -364,7 +374,7 @@ def bs(x, df=None, knots=None, degree: int = 3, intercept: bool = False,
         if not np.all(np.isfinite(knots)):
             raise ValueError("non-finite knots")
     if mk_knots and knots.size:
-        knots = _shove_knots(knots, boundary_knots)
+        knots = _shove_knots(knots, boundary_knots, strict=False)
     a_knots = np.sort(np.concatenate((np.repeat(boundary_knots, ord), knots)))
     if np.any(outside):
         derivs = np.arange(0, degree + 1)

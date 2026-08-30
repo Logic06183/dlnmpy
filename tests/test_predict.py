@@ -177,3 +177,37 @@ def test_dataframe_helpers(chicago, cases):
     assert "centered at: 21" in p.summary()
     rd = dl.crossreduce(cb, cen=21, coef=cases["ex5"]["model"]["coef"], vcov=cases["ex5"]["model"]["vcov"], model_link="log")
     assert list(rd.to_dataframe().columns) == ["var", "fit", "low", "high"]
+
+
+def test_argvar_cen_is_kept_by_crossbasis(chicago):
+    """R stores a cen given inside argvar on the cross-basis and mkcen() uses
+    it as the default reference; dropping it silently re-centres the curve."""
+    x = chicago.temp.to_numpy()[:400]
+    cb = dl.crossbasis(x, lag=5, argvar={"fun": "ns", "df": 3, "cen": 21},
+                       arglag={"fun": "ns", "df": 2})
+    assert cb.argvar["cen"] == 21
+    coef = np.arange(1, cb.ncol + 1) / 50
+    vcov = np.eye(cb.ncol) / 100
+    p = dl.crosspred(cb, coef=coef, vcov=vcov, model_link="log", at=[-10, 0, 10, 20, 30])
+    assert p.cen == 21
+    # R: crosspred(cb, coef=coef, vcov=V, model.link="log", at=c(-10,0,10,20,30))$allRRfit
+    assert_close(p.allRRfit, [0.852108974969, 0.856612999448, 0.889354799627,
+                              0.985363679309, 1.165800623334], atol=1e-11)
+    # an explicit cen still wins, and a basis without a stored cen is unchanged
+    assert dl.crosspred(cb, coef=coef, vcov=vcov, model_link="log", at=[0], cen=10).cen == 10
+    cb2 = dl.crossbasis(x, lag=5, argvar={"fun": "ns", "df": 3}, arglag={"fun": "ns", "df": 2})
+    assert dl.crosspred(cb2, coef=coef, vcov=vcov, model_link="log", at=[0]).cen == 5.0
+
+
+def test_numpy_boolean_cen(chicago):
+    """np.bool_ is not a subclass of bool, so a numpy boolean used to fall
+    through mkcen's branches and be coerced to 1.0 or 0.0."""
+    x = chicago.temp.to_numpy()[:400]
+    cb = dl.crossbasis(x, lag=5, argvar={"fun": "ns", "df": 3}, arglag={"fun": "ns", "df": 2})
+    coef = np.arange(1, cb.ncol + 1) / 50
+    vcov = np.eye(cb.ncol) / 100
+    kw = {"coef": coef, "vcov": vcov, "model_link": "log", "at": [0]}
+    for truthy in (True, np.True_):
+        assert dl.crosspred(cb, cen=truthy, **kw).cen == 5.0
+    for falsy in (False, np.False_):
+        assert dl.crosspred(cb, cen=falsy, **kw).cen is None

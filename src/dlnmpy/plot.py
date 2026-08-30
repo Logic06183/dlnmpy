@@ -160,6 +160,19 @@ def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
         matfit, matse, lags = pred.cumfit, pred.cumse, np.arange(pred.lag[0], pred.lag[1] + 1)
     outcome = ylab or ("RR" if e else "Effect")
 
+    def _lag_col(value):
+        """Column of ``matfit`` for lag ``value``. The cumulative outcomes have
+        one column per integer lag, not one per ``pred.predlag``: resolving them
+        against predlag silently returns the wrong lag whenever bylag != 1 (R
+        sets bylag to 1 under cumul and indexes cumfit by name)."""
+        if not cumul:
+            return pred._lag_index(value)
+        idx = np.nonzero(np.isclose(lags, value))[0]
+        if idx.size == 0:
+            raise ValueError(f"'lag'={value:g} must be one of the integer lags "
+                             f"{lags[0]:g}..{lags[-1]:g} for cumulative outcomes")
+        return int(idx[0])
+
     if ptype == "overall":
         ax = ax or plt.gca()
         _ci(ax, pred.predvar, f(pred.allfit - z * pred.allse), f(pred.allfit + z * pred.allse), ci)
@@ -189,7 +202,7 @@ def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
             axes_var = [ax] if vars_ else []
         for a, lg in zip(axes_lag, lags_):
             a.set_visible(True)
-            j = pred._lag_index(lg)
+            j = _lag_col(lg)
             _ci(a, pred.predvar, f(matfit[:, j] - z * matse[:, j]), f(matfit[:, j] + z * matse[:, j]), ci)
             a.plot(pred.predvar, f(matfit[:, j]), **{"color": _theme["line"], **kwargs})
             _finish(a, xlab or "Var", outcome, title or f"Lag {lg:g}", noeff)
@@ -286,7 +299,7 @@ def overlay_slices(pred, var=None, lag=None, ci: str = "n", ci_level=None, exp=N
     xl = xlab or ("Lag" if var is not None else "Var")
     _finish(ax, xl, ylab or ("RR" if e else "Effect"), title, noeff)
     if legend and len(values) > 1:
-        ax.legend(title=(xlab if (lag is None and xlab) else ("Var" if var is not None else "Lag")), loc="best")
+        ax.legend(title=("Var" if var is not None else "Lag"), loc="best")
     return ax
 
 
@@ -309,7 +322,8 @@ def summary_figure(pred, var=None, lag=None, xlab="Var", ylab=None, figsize=(7.2
         lag = [float(pred.predlag[0]), float(pred.predlag[min(len(pred.predlag) - 1, len(pred.predlag) // 4)])]
     ax = overlay_slices(pred, var=var, ci="area", ax=axes[1, 0], xlab="Lag", ylab=outcome,
                         title="c  Lag-response at selected values", exp=exp)
-    ax.get_legend().set_title(xlab)
+    if ax.get_legend() is not None:  # only drawn for more than one value
+        ax.get_legend().set_title(xlab)
     overlay_slices(pred, lag=lag, ci="area", ax=axes[1, 1], xlab=xlab, ylab=outcome,
                    title="d  Exposure-response at selected lags", exp=exp)
     fig.tight_layout()

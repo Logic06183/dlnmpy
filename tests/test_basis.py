@@ -86,3 +86,60 @@ def test_small_df_warns_like_r(chicago):
         dl.onebasis(chicago.temp, "ns", df=0)
     with pytest.warns(UserWarning, match="too small"):
         dl.onebasis(chicago.temp, "bs", df=2)
+
+
+def test_bs_warns_where_ns_stops_on_tied_boundary_knots():
+    """splines::ns stops when every interior knot lands on a boundary knot;
+    splines::bs only warns. Any exposure with a floor (zero-inflated rainfall,
+    a detection limit) reaches this."""
+    import warnings
+
+    x = np.concatenate([np.zeros(70), np.linspace(0.5, 50, 30)])
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        b = dl.onebasis(x, "bs", df=5)
+    assert b.matrix.shape == (100, 5)
+    assert_close(b.matrix[0], [0, 1, 0, 0, 0], atol=1e-12)
+    assert any("boundary knot" in str(m.message) for m in w)
+
+    # not all knots tie here, so both languages only shove and warn
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        assert dl.onebasis(x, "ns", df=5).matrix.shape == (100, 5)
+    assert any("shoving" in str(m.message) for m in w)
+
+    # all of them tie here: ns stops, bs does not
+    xz = np.concatenate([np.zeros(90), np.linspace(0.5, 50, 10)])
+    with pytest.raises(ValueError, match="interior knots match"):
+        dl.onebasis(xz, "ns", df=5)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert dl.onebasis(xz, "bs", df=5).matrix.shape == (100, 5)
+
+
+def test_strata_rejects_tied_breaks_and_is_na_outside_the_edges():
+    """R's cut() raises on non-unique breaks. Without the check the basis has
+    an empty stratum, hence a zero column and a singular design, silently."""
+    x = np.concatenate([np.zeros(60), np.linspace(1, 50, 40)])
+    with pytest.raises(ValueError, match="not unique"):
+        dl.onebasis(x, "strata", df=4)
+    with pytest.raises(ValueError, match="not unique"):
+        dl.onebasis(np.full(50, 3.0), "strata", df=3)
+    # cut() gives NA, not a zero row, outside the outer edges
+    xh = np.arange(1, 9, dtype=float) * 1e12
+    assert np.all(np.isnan(dl.onebasis(xh, "strata", df=3).matrix[-1]))
+    # and an ordinary case is untouched
+    b = dl.onebasis(np.linspace(0, 10, 100), "strata", df=3)
+    assert b.matrix.shape == (100, 3) and np.linalg.matrix_rank(b.matrix) == 3
+
+
+def test_thr_default_threshold_propagates_na_as_in_r():
+    """dlnm's thr uses median(x) without na.rm, so a missing value makes the
+    threshold NA. Dropping NaN would silently give a different threshold, and
+    different results, from the same R code."""
+    b = dl.onebasis(np.array([1, 2, np.nan, 4, 5, 6, 7.0]), "thr")
+    assert np.isnan(b.attrs["thr_value"]).all()
+    assert np.isnan(b.matrix).all()
+    # no missing values: unchanged
+    b2 = dl.onebasis(np.array([1, 2, 3, 4, 5.0]), "thr")
+    assert_close(b2.attrs["thr_value"], [3.0], atol=0)

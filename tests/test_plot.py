@@ -59,3 +59,42 @@ def test_overlay_summary_and_themes(pred):
     with pytest.raises(ValueError):
         overlay_slices(p, var=[1], lag=[2])
     set_theme("journal")
+
+
+def test_cumulative_slices_use_integer_lags(chicago, cases):
+    """The cumulative outcomes have one column per integer lag. Resolving a
+    lag against pred.predlag silently plots a different lag when bylag != 1."""
+    import numpy as np
+
+    from dlnmpy.plot import plot_crosspred
+
+    cb = dl.crossbasis(chicago.pm10, lag=15, argvar={"fun": "lin"},
+                       arglag={"fun": "poly", "degree": 4})
+    coef = np.asarray(cases["ex1"]["pred1_pm"]["coef"], float)
+    vcov = np.asarray(cases["ex1"]["pred1_pm"]["vcov"], float)
+    p = dl.crosspred(cb, coef=coef, vcov=vcov, model_link="log",
+                     at=np.arange(21), bylag=0.2, cumul=True)
+    assert p.predlag.size != np.shape(p.cumfit)[1]  # 76 vs 16: the trap
+    i10 = int(np.argmin(np.abs(p.predvar - 10)))
+    truth = np.exp(np.asarray(p.cumfit, float)[i10])
+    for lg in (0, 1, 2, 3, 4, 10, 15):
+        ax = plot_crosspred(p, "slices", lag=lg, cumul=True)
+        line = ax.get_lines()[0]
+        got = float(np.interp(10, line.get_xdata(), line.get_ydata()))
+        mpl.pyplot.close("all")
+        assert abs(got - truth[lg]) < 1e-9, f"lag {lg}: plotted {got}, expected {truth[lg]}"
+    with pytest.raises(ValueError, match="integer lags"):
+        plot_crosspred(p, "slices", lag=2.5, cumul=True)
+
+
+def test_overlay_legend_title_and_single_value(pred):
+    """The legend indexes the curves, not the x axis; and summary_figure must
+    survive a single value, for which overlay_slices draws no legend."""
+    from dlnmpy.plot import overlay_slices, summary_figure
+
+    p, _ = pred
+    ax = overlay_slices(p, var=[-10.0, 0.0, 20.0], xlab="Lag since exposure")
+    assert ax.get_legend().get_title().get_text() == "Var"
+    mpl.pyplot.close("all")
+    summary_figure(p, var=[20.0])             # used to raise AttributeError
+    mpl.pyplot.close("all")

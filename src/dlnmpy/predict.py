@@ -71,16 +71,18 @@ def mkcen(cen, basis, rng):
         stored = basis.cen
         intercept = basis.attrs.get("intercept", False)
     fname = fun if isinstance(fun, str) else getattr(fun, "__name__", "")
-    nocen = cen is None
-    if nocen:
+    if cen is None:
         cen = stored
+    # np.bool_ is not a subclass of bool, so a numpy boolean would fall through
+    # both branches and be coerced by float(cen) into 1.0 or 0.0
+    isbool = isinstance(cen, (bool, np.bool_))
     if fname in _NO_CEN_FUNS:
-        if isinstance(cen, bool):
+        if isbool:
             cen = None
     else:
-        if cen is None or (isinstance(cen, bool) and cen):
+        if cen is None or (isbool and cen):
             cen = median(pretty(rng))
-        if isinstance(cen, bool) and not cen:
+        elif isbool:
             cen = None
     if isinstance(intercept, (bool, np.bool_)) and intercept:
         cen = None

@@ -99,3 +99,55 @@ def test_to_dataframe_keeps_the_input_index(chicago):
                           arglag={"fun": "ns", "df": 3})
     assert isinstance(plain.to_dataframe("cb").index, pd.RangeIndex)
     assert list(cb.to_dataframe("cb", index=sub.index[::-1]).index) == list(sub.index[::-1])
+
+
+def test_fit_glm_offset_and_weights_reach_the_model():
+    """offset/exposure/freq_weights/var_weights are model arguments; GLM.fit()
+    accepts arbitrary keywords and would silently discard them."""
+    pytest.importorskip("statsmodels")
+    import pandas as pd
+    import statsmodels.api as sm
+    import statsmodels.formula.api as smf
+
+    rng = np.random.default_rng(1)
+    n = 200
+    lpop = rng.normal(size=n)
+    d = pd.DataFrame({"x": rng.normal(size=n), "lpop": lpop})
+    d["y"] = rng.poisson(np.exp(0.5 + 0.3 * d.x + lpop))
+
+    plain = dl.fit_glm("y ~ x", d, family="poisson")
+    off = dl.fit_glm("y ~ x", d, family="poisson", offset=lpop)
+    ref = smf.glm("y ~ x", d, family=sm.families.Poisson(), offset=lpop).fit()
+    assert not np.allclose(off.params, plain.params), "offset was ignored"
+    assert_close(off.params.to_numpy(), ref.params.to_numpy(), atol=1e-9)
+    # exposure is offset(log(exposure))
+    exp_ = dl.fit_glm("y ~ x", d, family="poisson", exposure=np.exp(lpop))
+    assert_close(exp_.params.to_numpy(), off.params.to_numpy(), atol=1e-9)
+    # weights reach the model too
+    w = dl.fit_glm("y ~ x", d, family="poisson", freq_weights=np.full(n, 2.0))
+    assert w.df_resid != plain.df_resid
+    # and survive both the NaN drop and the aliased-column refit
+    d2 = d.copy()
+    d2.loc[5, "x"] = np.nan
+    d2["x2"] = d2.x * 2
+    m2 = dl.fit_glm("y ~ x + x2", d2, family="poisson", offset=lpop)
+    ref2 = smf.glm("y ~ x", d2, family=sm.families.Poisson(), offset=lpop, missing="drop").fit()
+    assert m2.nobs == ref2.nobs == n - 1
+    assert_close(m2.params[["Intercept", "x"]].to_numpy(), ref2.params.to_numpy(), atol=1e-9)
+
+
+def test_get_link_compound_names():
+    """'log' is a substring of 'cloglog' and 'loglog'; matching it first
+    reports those as a log link and makes crosspred exponentiate them."""
+    sm = pytest.importorskip("statsmodels.api")
+
+    class Fake:
+        def __init__(self, fam):
+            self.family = fam
+
+    L = sm.families.links
+    assert dl.get_link(Fake(sm.families.Binomial(link=L.CLogLog()))) == "cloglog"
+    assert dl.get_link(Fake(sm.families.Binomial(link=L.LogLog()))) == "loglog"
+    assert dl.get_link(Fake(sm.families.Poisson(link=L.Log()))) == "log"
+    assert dl.get_link(Fake(sm.families.Binomial(link=L.Logit()))) == "logit"
+    assert dl.get_link(Fake(sm.families.Binomial(link=L.Probit()))) == "probit"

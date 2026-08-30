@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.5.0 (2026-08-30)
+
+Bug-fix release from a systematic audit against R (`dlnm` 2.4.10, `splines`, `mgcv`, `mixmeta`, `survival`), covering the basis functions, the prediction machinery, model fitting, meta-analysis, attribution and plotting. Everything below was verified against R and has a regression test that fails without the fix.
+
+**Silent wrong answers**
+
+- `fit_glm` ignored `offset`, `exposure`, `freq_weights` and `var_weights`. They are arguments of the model, but were forwarded to `GLM.fit()`, whose own `**kwargs` discards unknown names, so the caller silently got the un-offset fit. A Poisson model with a population offset returned coefficients `[0.850, 0.426]` where R's `offset()` gives `[0.497, 0.357]`. They are now explicit parameters, and survive both the NaN drop and the aliased-column refit.
+- `crossbasis(argvar={..., "cen": v})` discarded the centring value. R keeps it as `attr(cb, "argvar")$cen` and uses it as the default reference for every later `crosspred`/`crossreduce`, so predictions were silently centred on the automatic value instead: a relative risk of 1.343 where R gives 1.166, 15% out.
+- `strata` returned a rank-deficient basis when quantile breaks tied (a spike of zeros, say): an empty stratum, so an identically-zero column and a singular design, with nothing to signal it. R's `cut()` raises `'breaks' are not unique`, and so does this now. Values outside the outer edges are `NaN`, as `cut()` gives `NA`, rather than a row of zeros.
+- `plot(..., "slices", lag=L, cumul=True)` read the cumulative outcomes off `pred.predlag` instead of the integer lags they are defined on, so with `bylag != 1` it plotted a different lag: at `bylag=0.2`, `lag=2` drew the curve for lag 10, and `lag >= 4` raised `IndexError`. R sets `bylag` to 1 under `cumul` and indexes by name.
+- `get_link` reported a complementary log-log link as `"log"`, because `"log"` is a substring of `"cloglog"` and was tested first, so `crosspred` exponentiated the fit and reported relative risks for a model that has none. Same for `loglog`.
+- `cen=np.True_` / `np.False_` were coerced to 1.0 / 0.0: `np.bool_` is not a subclass of `bool`, so a numpy boolean fell through both branches of `mkcen`.
+
+**Divergences from R**
+
+- `bs` refused data whose interior knots all coincide with a boundary knot, which `splines::bs` accepts with a warning (only `ns` stops). This is reached by any exposure with a floor -- zero-inflated rainfall, a detection limit. The port now warns and returns the basis, as R does, and emits R's "shoving 'interior' knots" warning when only some knots tie.
+- `thr` computed its default threshold with NaN dropped; `dlnm` calls `median(x)` without `na.rm`, so a missing value makes the threshold, and the whole basis, `NA`. Dropping NaN silently gave a different threshold, and different results, from the same R code. **Behaviour change:** pass `thr.value` explicitly for data with missing values.
+
+**Other**
+
+- `summary_figure(pred, var=[<one value>])` raised `AttributeError`; `overlay_slices` draws no legend for a single value.
+- `overlay_slices(..., var=..., xlab=...)` titled the legend with the x-axis label, though the legend indexes the curves.
+- `simulate_coef` is exported at top level, as the other attribution helpers are.
+
+
 ## 0.4.2 (2026-08-30)
 
 Reproduces Gasparrini et al. (2015) *Lancet* end to end on the author's published England & Wales data (`examples/lancet_2015.py`, [docs/validation.md](docs/validation.md)): identical minimum-mortality percentiles and attributable fractions, reduced coefficients to 1e-13.
