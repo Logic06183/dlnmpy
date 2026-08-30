@@ -94,6 +94,16 @@ R argument spellings are accepted where they differ (`thr.value`/`thr`, `Boundar
 
 The cross-basis columns are named `v{i}.l{j}` as in R (or `{name}_v{i}_l{j}` in the DataFrame returned by `to_dataframe`, which is what `crosspred(..., name=...)` uses to find the right coefficients in a fitted model).
 
+## Figures
+
+Plots are designed for print: neutral sans-serif, thin marks, hairline gridlines, no top or right spines, a light-grey interval band and a dashed null-effect line, with `plot.set_theme("journal")` (greyscale, the default) or `plot.set_theme("colour")` (a colour-blind-safe palette validated for adjacent-pair separation: blue estimate, blue-to-red diverging surface with a neutral grey midpoint, fixed-order hues for overlays). Besides the four R plot types, `overlay_slices` draws several curves on one axis with a legend (the R `plot()` + `lines()` idiom) and `summary_figure` gives the standard four-panel figure (overall curve, surface, lag-response and exposure-response slices). All functions return matplotlib axes, so anything can be adjusted.
+
+![summary figure](examples/figures/summary_colour.png)
+
+## Uncertainty beyond the delta method, and model selection
+
+`dlnmpy.uncertainty` gives parametric-bootstrap intervals for any function of the coefficients (`bootstrap(fn, coef, vcov)`, `simulate_pred`, `empirical_ci`), the route used for the MMT and attributable numbers, and `qaic` with `model_grid` to compare cross-basis specifications by quasi-AIC (Gasparrini et al. 2010).
+
 ## Beyond the R package: attributable risk and the MMT
 
 `dlnm` stops at prediction; the quantities papers actually report need Gasparrini's separate R scripts. Those are ported and validated here too (`dlnmpy.attribution`):

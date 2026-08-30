@@ -2,7 +2,7 @@
 
 ## 0.4.0 (2026-08-30)
 
-Cubic regression spline basis `cr` (port of mgcv, matches R to 1e-14). Penalised fitting: `fit_pgam`/`fit_pglm` with REML or ML smoothing-parameter selection reproducing `mgcv::gam(paraPen=)` (validated on Poisson, quasi-Poisson, ML, cr/cr and additional lag penalties). Restrained journal-style plot defaults and `plot.set_style()`. `datasets.simulate_cities` (0.3.2).
+Plotting redesign: journal and colour themes (`plot.set_theme`), `overlay_slices`, `summary_figure`, R-consistent labels. `dlnmpy.uncertainty`: parametric bootstrap helpers, QAIC and `model_grid`. Theory document extended to cr, attribution, MMT, meta-analysis and penalised fitting. Cubic regression spline basis `cr` (port of mgcv, matches R to 1e-14). Penalised fitting: `fit_pgam`/`fit_pglm` with REML or ML smoothing-parameter selection reproducing `mgcv::gam(paraPen=)` (validated on Poisson, quasi-Poisson, ML, cr/cr and additional lag penalties). Restrained journal-style plot defaults and `plot.set_style()`. `datasets.simulate_cities` (0.3.2).
 
 ## 0.3.2 (2026-08-29)
 

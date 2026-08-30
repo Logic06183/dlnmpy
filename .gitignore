@@ -6,4 +6,5 @@ dist/
 .pytest_cache/
 .ruff_cache/
 examples/figures/*.png
+!examples/figures/summary_colour.png
 .ipynb_checkpoints/
