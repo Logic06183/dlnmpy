@@ -79,6 +79,8 @@ def get_link(model, model_link: str | None = None) -> str | None:
         return model_link
     if model is None:
         return None
+    if isinstance(getattr(model, "link", None), str):  # e.g. PenalizedGLMResults
+        return model.link
     m = getattr(model, "model", model)
     fam = getattr(m, "family", None)
     link = getattr(fam, "link", None)

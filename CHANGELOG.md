@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 (2026-08-30)
+
+Cubic regression spline basis `cr` (port of mgcv, matches R to 1e-14). Penalised fitting: `fit_pgam`/`fit_pglm` with REML or ML smoothing-parameter selection reproducing `mgcv::gam(paraPen=)` (validated on Poisson, quasi-Poisson, ML, cr/cr and additional lag penalties). Restrained journal-style plot defaults and `plot.set_style()`. `datasets.simulate_cities` (0.3.2).
+
 ## 0.3.2 (2026-08-29)
 
 `datasets.simulate_cities()` (pure-Python multi-location simulator); the two-stage example no longer reads a file from the test fixtures. `environment.yml` and a conda-forge recipe skeleton in `conda/`.

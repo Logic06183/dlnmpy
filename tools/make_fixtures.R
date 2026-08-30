@@ -77,7 +77,11 @@ specs <- list(
   ps_df10        = list(fun = "ps", df = 10),
   ps_df8_int     = list(fun = "ps", df = 8, intercept = TRUE),
   ps_deg2_diff1  = list(fun = "ps", df = 7, degree = 2, diff = 1),
-  ps_knots2      = list(fun = "ps", df = 9, knots = c(-20, 30))
+  ps_knots2      = list(fun = "ps", df = 9, knots = c(-20, 30)),
+  cr_df5         = list(fun = "cr", df = 5),
+  cr_df6_int     = list(fun = "cr", df = 6, intercept = TRUE),
+  cr_knots       = list(fun = "cr", knots = c(-10, 0, 10, 20, 28)),
+  cr_fx          = list(fun = "cr", df = 4, fx = TRUE)
 )
 keep <- c("fun", "range", "df", "knots", "Boundary.knots", "degree", "intercept",
   "scale", "breaks", "ref", "thr.value", "side", "values", "fx", "S", "diff")
@@ -267,9 +271,13 @@ Q3 <- exphist(c(1, 2, 3, 4, 5), lag = c(1, 3), fill = -1)
 cb7 <- crossbasis(chicagoNMMAPS$temp, lag = 10, argvar = list(fun = "ps", df = 8), arglag = list(fun = "ps", df = 5))
 pen7 <- cbPen(cb7)
 wcsv(cb7, "cb7")
+cb9 <- crossbasis(chicagoNMMAPS$temp, lag = 21, argvar = list(fun = "cr", df = 6), arglag = list(fun = "cr", df = 5))
+pen9 <- cbPen(cb9)
+wcsv(cb9, "cb9")
 cases$ex6 <- list(cb6 = cbmeta(cb6), Q2 = unclass(Q2), Q2_rows = rownames(Q2),
   Q3 = unclass(Q3), cb7 = cbmeta(cb7),
-  pen7 = list(Svar = unname(pen7$Svar), Slag = unname(pen7$Slag), rank = unname(pen7$rank)))
+  pen7 = list(Svar = unname(pen7$Svar), Slag = unname(pen7$Slag), rank = unname(pen7$rank)),
+  cb9 = cbmeta(cb9), pen9 = list(Svar = unname(pen9$Svar), Slag = unname(pen9$Slag), rank = unname(pen9$rank)))
 
 # Example 7: single-lag (lag=0) crossbasis and onebasis prediction -----------
 ob <- onebasis(chicagoNMMAPS$temp, "ns", df = 4)

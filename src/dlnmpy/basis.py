@@ -16,6 +16,7 @@ Available functions (names follow the R package):
 - ``ns``       natural cubic spline (``splines::ns``)
 - ``bs``       B-spline (``splines::bs``)
 - ``ps``       penalised B-spline (P-spline), with its difference penalty
+- ``cr``       cubic regression spline (mgcv), with its wiggliness penalty
 
 ``PRED_ARGS`` lists, for each function, which attributes are passed back when
 the transformation is re-applied (R uses ``formals()`` for this).
@@ -28,7 +29,7 @@ import numpy as np
 from . import _splines
 from ._rcompat import median, quantile7
 
-__all__ = ["lin", "poly", "strata", "thr", "integer", "ns", "bs", "ps",
+__all__ = ["lin", "poly", "strata", "thr", "integer", "ns", "bs", "ps", "cr",
            "BASIS_FUNCTIONS", "PRED_ARGS", "get_basis_function"]
 
 
@@ -230,9 +231,106 @@ def ps(x, df: int = 10, knots=None, degree: int = 3, intercept: bool = False,
 
 
 # ----------------------------------------------------------------------------
+def _cr_FS(xk: np.ndarray):
+    """Port of mgcv's ``getFS``: for knots ``xk`` return ``F`` (n x n, mapping
+    function values at the knots to second derivatives, Wood 2006 s4.1.2)
+    and the wiggliness penalty ``S = D' B^-1 D``."""
+    n = xk.size
+    h = np.diff(xk)
+    n2 = n - 2
+    D = np.zeros((n2, n))
+    for i in range(n2):
+        D[i, i] = 1 / h[i]
+        D[i, i + 2] = 1 / h[i + 1]
+        D[i, i + 1] = -D[i, i] - D[i, i + 2]
+    B = np.zeros((n2, n2))
+    for i in range(n2):
+        B[i, i] = (h[i] + h[i + 1]) / 3
+    for i in range(1, n2):
+        B[i - 1, i] = B[i, i - 1] = h[i] / 6
+    BinvD = np.linalg.solve(B, D)
+    F = np.zeros((n, n))
+    F[:, 1:n - 1] = BinvD.T
+    S = D.T @ BinvD
+    return F, S
+
+
+def _crspl(x: np.ndarray, xk: np.ndarray, F: np.ndarray) -> np.ndarray:
+    """Port of mgcv's ``crspl``: cubic regression spline model matrix for
+    ``x`` given knots ``xk`` and the matrix ``F`` from :func:`_cr_FS`."""
+    nk = xk.size
+    X = np.zeros((x.size, nk))
+    kmin, kmax = xk[0], xk[-1]
+    for i, xi in enumerate(x):
+        if np.isnan(xi):
+            X[i] = np.nan
+            continue
+        if xi < kmin:
+            h = xk[1] - kmin
+            xik = xi - kmin
+            X[i] = (-xik * h / 3) * F[:, 0] + (-xik * h / 6) * F[:, 1]
+            X[i, 0] += 1 - xik / h
+            X[i, 1] += xik / h
+        elif xi > kmax:
+            j = nk - 1
+            h = kmax - xk[j - 1]
+            xik = xi - kmax
+            X[i] = (xik * h / 6) * F[:, j - 1] + (xik * h / 3) * F[:, j]
+            X[i, nk - 2] += -xik / h
+            X[i, nk - 1] += 1 + xik / h
+        else:
+            j = int(np.clip(np.searchsorted(xk, xi, side="left") - 1, 0, nk - 2))
+            xj, xj1 = xk[j], xk[j + 1]
+            h = xj1 - xj
+            ajm, ajp = xj1 - xi, xi - xj
+            cjm = (ajm * (ajm * ajm / h - h)) / 6
+            cjp = (ajp * (ajp * ajp / h - h)) / 6
+            X[i] = cjm * F[:, j] + cjp * F[:, j + 1]
+            X[i, j] += ajm / h
+            X[i, j + 1] += ajp / h
+    return X
+
+
+def cr(x, df: int = 10, knots=None, intercept: bool = False, fx: bool = False, S=None):
+    """Cubic regression spline basis with its penalty (port of ``dlnm::cr``,
+    which wraps mgcv's ``smooth.construct.cr.smooth.spec``).
+
+    Knots default to quantiles of the unique values of ``x``; the first column
+    is dropped unless ``intercept``. Values beyond the outer knots are
+    extrapolated linearly, as in mgcv."""
+    x = _asvec(x)
+    nax = np.isnan(x)
+    xx = x[~nax]
+    intercept = bool(intercept)
+    if knots is None:
+        if df < 3:
+            raise ValueError("'df' must be >=3")
+        knots = quantile7(np.unique(xx), np.linspace(0, 1, int(df) + (not intercept)))
+    else:
+        knots = np.asarray(knots, dtype=float).ravel()
+        df = knots.size - (not intercept)
+    knots = np.sort(knots)
+    F, Sfull = _cr_FS(knots)
+    basis = _crspl(x, knots, F)
+    if not intercept:
+        basis = basis[:, 1:]
+    if fx:
+        S = None
+    elif S is None:
+        S = (Sfull + Sfull.T) / 2
+        if not intercept:
+            S = S[1:, 1:]
+    else:
+        S = np.asarray(S, dtype=float)
+        if S.shape != (basis.shape[1], basis.shape[1]):
+            raise ValueError("dimensions of 'S' not compatible")
+    return basis, {"df": int(df), "knots": knots, "intercept": intercept, "fx": bool(fx), "S": S}
+
+
+# ----------------------------------------------------------------------------
 BASIS_FUNCTIONS = {
     "lin": lin, "poly": poly, "strata": strata, "thr": thr, "integer": integer,
-    "ns": ns, "bs": bs, "ps": ps,
+    "ns": ns, "bs": bs, "ps": ps, "cr": cr,
 }
 
 # Attributes re-used when the transformation is applied to new data
@@ -246,6 +344,7 @@ PRED_ARGS = {
     "ns": ["knots", "intercept", "boundary_knots"],
     "bs": ["knots", "degree", "intercept", "boundary_knots"],
     "ps": ["df", "knots", "degree", "intercept", "fx", "S", "diff"],
+    "cr": ["df", "knots", "intercept", "fx", "S"],
 }
 
 # Functions that accept an 'intercept' argument (all of them here); kept for

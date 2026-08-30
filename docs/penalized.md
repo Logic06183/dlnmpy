@@ -1,15 +1,28 @@
-# Penalised DLNMs: status
+# Penalised DLNMs
 
-The R package supports penalised DLNMs (Gasparrini et al. 2017) in two ways: `ps`/`cr` bases with `cbPen` to build penalty matrices for use in `mgcv::gam(..., paraPen=)`, and a purpose-built smooth constructor (`smooth.construct.cb.smooth.spec`) for `s(x, lag, bs="cb")`. Both rely on mgcv for the penalised fit (smoothing parameter selection by REML or GCV).
+The R package supports penalised DLNMs (Gasparrini, Scheipl, Armstrong & Kenward 2017) through `ps`/`cr` bases and `cbPen`, with the fit delegated to `mgcv::gam(..., paraPen=list(cb=cbPen(cb)), method="REML")`. dlnmpy provides the same route end to end, without mgcv:
 
-What `dlnmpy` provides now:
+- `ps` (P-spline) and `cr` (cubic regression spline, a port of mgcv's `smooth.construct.cr.smooth.spec` and `crspl`) bases with their penalty matrices, matching R to 1e-14;
+- `cbpen(cb, add_slag=...)`, the expanded and rescaled penalties for the cross-basis (matches `cbPen`);
+- `fit_pgam(formula, data, penalties={"cb": cbpen(cb)}, family=..., method="reml"|"ml")`, a penalised IRLS fitter whose smoothing parameters (and, for quasi families, the scale) maximise the Laplace-approximate REML or ML criterion of Wood (2011), implemented exactly as in `mgcv::gam.fit3` (`fit_pglm` is the array-level version).
 
-- the `ps` basis with its difference penalty matrix (matches R);
-- `cbpen(cb, add_slag=...)`, giving the expanded and rescaled penalty matrices, their ranks and the smoothing parameter placeholders (matches R).
+```python
+cb = dl.crossbasis(temp, lag=21, argvar={"fun": "cr", "df": 8}, arglag={"fun": "ps", "df": 6})
+fit = dl.fit_pgam("death ~ " + " + ".join(X.columns) + " + C(dow)", data,
+                  penalties={"cb": dl.cbpen(cb)}, family="quasipoisson", method="reml")
+fit.sp, fit.edf_by("cb_"), fit.scale
+pred = dl.crosspred(cb, fit, cen=21, by=1, name="cb")   # works like any other model
+```
 
-What is missing:
+## Agreement with mgcv
 
-- the `cr` basis (mgcv's cubic regression spline construction, `smooth.construct.cr.smooth.spec`), which needs the natural cubic spline parameterisation with knots as parameters; not difficult, but it must be ported carefully for equivalence;
-- a fitter. There is no mgcv in Python. The options are a penalised IRLS with the penalties from `cbpen` and smoothing parameters chosen by REML (Wood 2011), a mixed-model reparameterisation, or a Bayesian fit. Once the coefficients and their covariance are available, `crosspred` and `crossreduce` apply unchanged: the prediction algebra does not depend on how the coefficients were estimated.
+`tools/make_fixtures_pen.R` fits the same models with `gam` (mgcv 1.9). At fixed smoothing parameters the REML score, coefficients, covariance, scale, effective degrees of freedom and deviance agree to 1e-8 or better, which pins the criterion itself. With smoothing parameters selected (Poisson REML, quasi-Poisson REML with the scale estimated, Poisson ML, `cr`/`cr` quasi-Poisson, and a P-spline cross-basis with an additional ridge penalty on the lag coefficients), the optimised scores agree to 1e-5, the smoothing parameters to about 1e-4 relative and the cross-basis coefficients to 1e-4 or better; the residual differences come from the two optimisers stopping at slightly different points on a flat criterion. Two details worth knowing:
 
-An interim route is to fit in R (`gam` with `paraPen`) and bring `coef`/`vcov` into Python for prediction, or to fix smoothing parameters and fit a penalised GLM by hand: with penalty `S = sum_k sp_k S_k` the penalised IRLS step solves `(X'WX + S) beta = X'Wz`, and the Bayesian covariance is `(X'WX + S)^{-1} phi`.
+- mgcv reports, and scales the covariance by, the Fletcher (2012) corrected Pearson estimate of the scale rather than the REML scale; `fit_pgam` does the same (`fit.scale`; the REML value is `fit.reml_scale`).
+- mgcv's ML criterion uses the log determinant of the penalised Hessian projected onto the range space of the penalty (the unpenalised coefficients are profiled, not integrated); `method="ml"` reproduces that.
+
+The optimiser is a generic quasi-Newton on the log smoothing parameters with numerical derivatives, which is adequate for the two or three parameters of a cross-basis (a few seconds on the Chicago data) but slower than mgcv's Newton method with analytic derivatives; that is the natural place for a later optimisation.
+
+## A practical note
+
+A `ps` basis on a predictor with sparse tails (temperature) leaves the outer coefficients weakly penalised and can produce implausible estimates at the extremes: on Chicago, `ps(df=9)` for temperature gives RR 5.4 at 33 C, identically in R and Python. A `cr` basis for the predictor (knots at quantiles) or restricting predictions to the 1st to 99th percentiles avoids this; the 2017 paper discusses additional penalties (`add_slag`) for the lag dimension.

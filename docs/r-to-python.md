@@ -30,7 +30,9 @@ The public API mirrors the R package so that existing R analyses translate almos
 | `plot(pred, xlab=, ylab=, zlab=)` (3d) | `pred.plot("3d", xlab=, ylab=, zlab=)` |
 | `plot(red)` | `red.plot()` |
 | `summary(cb)`, `summary(pred)` | `print(cb.summary())`, `print(pred.summary())` |
-| `cbPen(cb)` | `dl.cbpen(cb)` |
+| `cbPen(cb, addSlag=)` | `dl.cbpen(cb, add_slag=)` |
+| `gam(y ~ cb + ..., family, paraPen=list(cb=cbPen(cb)), method="REML")` | `dl.fit_pgam("y ~ " + cols, data, penalties={"cb": dl.cbpen(cb)}, family=, method="reml")` |
+| `m$sp`, `m$sig2`, `m$edf`, `m$gcv.ubre` | `fit.sp`, `fit.scale`, `fit.edf`, `fit.reml` |
 | `attrdl(x, cb, cases, model, cen=mmt)` (Gasparrini script) | `dl.attrdl(x, cb, cases, model, cen=mmt, name="cb")` |
 | `findmin(cb, model, from, to, by)` (Gasparrini script) | `dl.findmin(cb, model, from_=, to=, by=, name="cb")`, or `dl.mmt(...)` with CI |
 | `mixmeta(y ~ 1, S, method="reml")` (mixmeta package) | `dl.mixmeta(y, S, method="reml")` |
@@ -56,7 +58,7 @@ If the model was fitted elsewhere (R, Stan, a Rust fitter), pass `coef` and `vco
 - **Categorical reference level.** patsy's `C(dow)` uses the alphabetically first level as reference; R uses the first factor level. Coefficients of the cross-basis are unaffected.
 - **Warnings and messages.** R prints a message when the centring value is chosen automatically; Python is silent (`pred.cen` holds the value).
 - **Row names.** For a matrix `at`, R labels predictions with the row names; Python uses the row index `0..n-1` in `pred.predvar`.
-- **`crosspred` for `mgcv::gam` smooths** (`type="gam"` in R) is not implemented, as there is no mgcv in Python. Penalised fitting is discussed in `penalized.md`.
+- **`crosspred` for `mgcv::gam` smooths** built with `s(x, lag, bs="cb")` (`type="gam"` in R) is not implemented; the `paraPen` route is, through `fit_pgam` (see `penalized.md`).
 - **Missing values in `x`** produce NaN rows in the basis and cross-basis, as in R. `fit_glm` drops them (`missing="drop"`).
 
 ## Objects

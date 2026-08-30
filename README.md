@@ -79,13 +79,12 @@ The `examples/chicago_timeseries.py` script reproduces the four examples of the 
 | `crossbasis(x, lag, argvar, arglag, group)` | `crossbasis(x, lag, argvar, arglag, group)` | returns `CrossBasis`; `x` may be a series or a matrix of exposure histories |
 | `lin`, `poly`, `strata`, `thr`, `integer` | same names in `dlnmpy.basis` | |
 | `splines::ns`, `splines::bs` | `ns`, `bs` | literal ports, including extrapolation beyond the boundary knots |
-| `ps` | `ps` | P-spline basis with difference penalty |
-| `cr` | not yet | needs mgcv's cubic regression spline construction |
+| `ps`, `cr` | `ps`, `cr` | penalised bases with their penalty matrices (`cr` ports mgcv's construction) |
 | `logknots`, `equalknots` | `logknots`, `equalknots` | |
 | `exphist` | `exphist` | |
 | `crosspred(...)` | `crosspred(...)` | returns `CrossPred`; `from`/`to` are `from_`/`to` |
 | `crossreduce(...)` | `crossreduce(...)` | returns `CrossReduce` |
-| `cbPen` | `cbpen` | penalty matrices; no penalised fitter yet (see `docs/penalized.md`) |
+| `cbPen` + `mgcv::gam(paraPen=)` | `cbpen` + `fit_pgam` | penalised DLNMs with REML/ML smoothing, validated against mgcv (`docs/penalized.md`) |
 | `plot.crosspred` (`overall`, `slices`, `contour`, `3d`) | `CrossPred.plot(...)` | matplotlib |
 | `plot.crossreduce` | `CrossReduce.plot(...)` | |
 | `summary` methods | `.summary()` | |
@@ -111,6 +110,10 @@ dl.attrdl(chicago.temp, cb, chicago.death, model, type="an", dir="forw", cen=res
 ```
 
 `attrdl` is a port of `attrdl.R` (Gasparrini & Leone 2014): backward and forward perspectives, attributable numbers and fractions, daily or total, exposure ranges, reduced coefficients, and empirical intervals by simulation. `findmin` ports `findmin.R` (Tobías, Armstrong & Gasparrini 2017). Both match the R functions to 1e-8 or better on every deterministic quantity (`tests/test_attribution.py`); the simulation path is checked with the same coefficient draws in both languages. `mmt` and `attr_table` wrap them into the summaries used in practice, with one shared set of simulated coefficients so cold, heat and their extreme and moderate parts are mutually consistent. See `examples/attributable_risk.py`.
+
+## Penalised DLNMs without mgcv
+
+`fit_pgam` fits the penalised cross-basis models of Gasparrini et al. (2017) by penalised IRLS with smoothing parameters chosen by REML or ML (Wood 2011), reproducing `gam(..., paraPen=list(cb=cbPen(cb)), method="REML")`: scores to 1e-5, smoothing parameters to 1e-4, coefficients to 1e-4 or better against mgcv (`tests/test_penalized.py`). See `docs/penalized.md` and `examples/penalized_dlnm.py`.
 
 ## Two-stage designs: multivariate meta-analysis
 
@@ -156,7 +159,8 @@ src/dlnmpy/
   predict.py     CrossPred, CrossReduce, crosspred(), crossreduce(), mkat, mkcen
   model.py       coefficient/vcov extraction, fit_glm (statsmodels), design_matrix
   penalty.py     cbpen
-  plot.py        matplotlib plots
+  penalized.py   fit_pgam / fit_pglm: penalised IRLS with REML/ML smoothing (mgcv's criterion)
+  plot.py        matplotlib plots (journal style; plot.set_style())
   datasets.py    chicagoNMMAPS, drug, nested
 docs/
   theory.md          the mathematics, written as a language-neutral specification
@@ -170,7 +174,7 @@ examples/            vignette reproduction
 
 ## Roadmap
 
-1. Cubic regression splines (`cr`) and a penalised fitter for `ps`/`cr` cross-bases (the R package delegates to `mgcv::gam`; the Python route is a REML or GCV fit with the penalty matrices from `cbpen`).
+1. Analytic derivatives for the penalised fitter (mgcv-speed smoothing parameter selection).
 2. Parametric-bootstrap intervals for any derived quantity, and a Bayesian route (same design matrix in PyMC/numpyro).
 3. Multilevel meta-analysis (nested random levels, as in `mixmeta`'s extended framework) and longitudinal/repeated-measures structures.
 4. A Rust core with Python bindings, validated with the same fixtures.
@@ -189,6 +193,7 @@ Two earlier Python efforts exist: [aedessler/pydlnm](https://github.com/aedessle
 - Sera F, Armstrong B, Blangiardo M, Gasparrini A. An extended mixed-effects framework for meta-analysis. *Statistics in Medicine* 2019; 38(29):5429-5444.
 - Gasparrini A, Leone M. Attributable risk from distributed lag models. *BMC Medical Research Methodology* 2014; 14:55.
 - Tobías A, Armstrong B, Gasparrini A. Investigating uncertainty in the minimum mortality temperature. *Epidemiology* 2017; 28(1):72-76.
+- Wood SN. Fast stable restricted maximum likelihood and marginal likelihood estimation of semiparametric generalized linear models. *JRSS B* 2011; 73(1):3-36.
 - Gasparrini A, Scheipl F, Armstrong B, Kenward MG. A penalized framework for distributed lag non-linear models. *Biometrics* 2017; 73(3):938-948.
 
 ## Licence

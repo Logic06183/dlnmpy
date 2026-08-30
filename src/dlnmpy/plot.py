@@ -9,7 +9,27 @@ from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["plot_crosspred", "plot_crossreduce"]
+__all__ = ["plot_crosspred", "plot_crossreduce", "set_style"]
+
+# Restrained, print-safe defaults: dark estimate line, light grey interval,
+# thin reference line, no top/right spines. Every colour can be overridden
+# through the plotting functions' keyword arguments.
+LINE = "0.1"
+BAND = "0.85"
+REF = "0.4"
+
+
+def set_style(font_size: float = 9.0):
+    """Apply a journal-figure style (neutral sans-serif, thin axes, no
+    top/right spines) to matplotlib's rcParams for the session."""
+    import matplotlib as mpl
+    mpl.rcParams.update({
+        "font.family": "sans-serif", "font.size": font_size, "axes.titlesize": font_size + 1,
+        "axes.labelsize": font_size, "xtick.labelsize": font_size - 1, "ytick.labelsize": font_size - 1,
+        "legend.fontsize": font_size - 1, "axes.linewidth": 0.6, "xtick.major.width": 0.6,
+        "ytick.major.width": 0.6, "axes.spines.top": False, "axes.spines.right": False,
+        "legend.frameon": False, "figure.dpi": 110, "savefig.dpi": 300, "lines.linewidth": 1.2,
+    })
 
 
 def _mpl():
@@ -17,15 +37,21 @@ def _mpl():
     return plt
 
 
+def _despine(ax):
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+
+
 def _ci(ax, x, low, high, ci: str, **kw):
     if ci == "area":
-        ax.fill_between(x, low, high, color=kw.pop("color", "0.85"), alpha=kw.pop("alpha", 1.0),
+        ax.fill_between(x, low, high, color=kw.pop("color", BAND), alpha=kw.pop("alpha", 1.0),
                         linewidth=0, **kw)
     elif ci == "lines":
-        ax.plot(x, low, color=kw.pop("color", "0.5"), linestyle=kw.pop("linestyle", "--"), **kw)
-        ax.plot(x, high, color="0.5", linestyle="--")
+        c = kw.pop("color", REF)
+        ax.plot(x, low, color=c, linestyle=kw.pop("linestyle", "--"), linewidth=0.8, **kw)
+        ax.plot(x, high, color=c, linestyle="--", linewidth=0.8)
     elif ci == "bars":
-        ax.vlines(x, low, high, color=kw.pop("color", "0.5"), **kw)
+        ax.vlines(x, low, high, color=kw.pop("color", REF), linewidth=0.8, **kw)
 
 
 def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
@@ -73,8 +99,9 @@ def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
     if ptype == "overall":
         ax = ax or plt.gca()
         _ci(ax, pred.predvar, f(pred.allfit - z * pred.allse), f(pred.allfit + z * pred.allse), ci)
-        ax.plot(pred.predvar, f(pred.allfit), **{"color": "C3", **kwargs})
-        ax.axhline(noeff, color="0.3", linewidth=0.8)
+        ax.plot(pred.predvar, f(pred.allfit), **{"color": LINE, **kwargs})
+        ax.axhline(noeff, color=REF, linewidth=0.6, linestyle=":")
+        _despine(ax)
         ax.set_xlabel(xlab or "Var"); ax.set_ylabel(ylab or "Outcome")
         if title: ax.set_title(title)
         return ax
@@ -103,16 +130,18 @@ def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
             a.set_visible(True)
             j = pred._lag_index(l)
             _ci(a, pred.predvar, f(matfit[:, j] - z * matse[:, j]), f(matfit[:, j] + z * matse[:, j]), ci)
-            a.plot(pred.predvar, f(matfit[:, j]), **{"color": "C3", **kwargs})
-            a.axhline(noeff, color="0.3", linewidth=0.8)
+            a.plot(pred.predvar, f(matfit[:, j]), **{"color": LINE, **kwargs})
+            a.axhline(noeff, color=REF, linewidth=0.6, linestyle=":")
+            _despine(a)
             a.set_xlabel(xlab or "Var"); a.set_ylabel(ylab or "Outcome")
             a.set_title(title or f"Lag = {l:g}")
         for a, v in zip(axes_var, vars_):
             a.set_visible(True)
             i = pred._var_index(v)
             _ci(a, lags, f(matfit[i] - z * matse[i]), f(matfit[i] + z * matse[i]), ci)
-            a.plot(lags, f(matfit[i]), **{"color": "C3", **kwargs})
-            a.axhline(noeff, color="0.3", linewidth=0.8)
+            a.plot(lags, f(matfit[i]), **{"color": LINE, **kwargs})
+            a.axhline(noeff, color=REF, linewidth=0.6, linestyle=":")
+            _despine(a)
             a.set_xlabel(xlab or "Lag"); a.set_ylabel(ylab or "Outcome")
             a.set_title(title or f"Var = {v:g}")
         return (axes_lag + axes_var)[0] if n == 1 else axes_lag + axes_var
@@ -140,8 +169,8 @@ def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
             ax = fig.add_subplot(111, projection="3d")
         X, Y = np.meshgrid(pred.predvar, lags, indexing="ij")
         phi, theta = kwargs.pop("phi", 30), kwargs.pop("theta", 210)
-        ax.plot_surface(X, Y, f(matfit), cmap=kwargs.pop("cmap", "viridis"),
-                        linewidth=0.2, edgecolor="k", antialiased=True, **kwargs)
+        ax.plot_surface(X, Y, f(matfit), cmap=kwargs.pop("cmap", "Greys"),
+                        linewidth=0.15, edgecolor="0.3", antialiased=True, **kwargs)
         ax.view_init(elev=phi, azim=theta)
         ax.set_xlabel(xlab or "Var"); ax.set_ylabel(ylab or "Lag"); ax.set_zlabel(zlab or "Outcome")
         if title: ax.set_title(title)
@@ -162,8 +191,9 @@ def plot_crossreduce(red, ci: str = "area", ci_level=None, exp=None, ax=None,
     ax = ax or plt.gca()
     x = red.x
     _ci(ax, x, f(red.fit - z * red.se), f(red.fit + z * red.se), ci)
-    ax.plot(x, f(red.fit), **{"color": "C3", **kwargs})
-    ax.axhline(1.0 if e else 0.0, color="0.3", linewidth=0.8)
+    ax.plot(x, f(red.fit), **{"color": LINE, **kwargs})
+    ax.axhline(1.0 if e else 0.0, color=REF, linewidth=0.6, linestyle=":")
+    _despine(ax)
     ax.set_xlabel(xlab or ("Lag" if red.type == "var" else "Var"))
     ax.set_ylabel(ylab or "Outcome")
     if title: ax.set_title(title)
