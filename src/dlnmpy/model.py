@@ -145,8 +145,9 @@ def aliased_columns(X, tol: float = 1e-7) -> list[int]:
         if nrm0 == 0:
             aliased.append(j)
             continue
-        r = v - Q @ (Q.T @ v)
-        r = r - Q @ (Q.T @ r)  # re-orthogonalise for stability
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore", under="ignore"):
+            r = v - Q @ (Q.T @ v)
+            r = r - Q @ (Q.T @ r)  # re-orthogonalise for stability
         nrm = np.linalg.norm(r)
         if nrm < tol * nrm0:
             aliased.append(j)

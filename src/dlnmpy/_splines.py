@@ -228,7 +228,8 @@ def spline_design(knots, x, ord: int = 4, derivs=0, outer_ok: bool = False) -> n
 def _qr_qty(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     """R's ``qr.qty(qr(A), B)`` = t(Q) %*% B with the full Q of A."""
     q, _ = np.linalg.qr(A, mode="complete")
-    return q.T @ B
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore", under="ignore"):
+        return q.T @ B
 
 
 def ns(x, df=None, knots=None, intercept: bool = False, boundary_knots=None):

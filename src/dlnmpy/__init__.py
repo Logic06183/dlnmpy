@@ -32,7 +32,7 @@ from .meta import MixMeta, mixmeta, predict_reduced, stack_reduced
 from .penalized import PenalizedGLMResults, fit_pgam, fit_pglm
 from .uncertainty import bootstrap, empirical_ci, model_grid, qaic, simulate_pred
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 __all__ = [
     "onebasis", "crossbasis", "crosspred", "crossreduce", "exphist", "logknots",

@@ -313,7 +313,8 @@ def crossbasis(x, lag=None, argvar=None, arglag=None, group=None) -> CrossBasis:
             mat = lag_matrix(basisvar[:, v], seqlag(lag), group=group)
         else:
             mat = basisvar[:, v].reshape((n, nlag), order="F")
-        cb[:, vl * v: vl * (v + 1)] = mat @ basislag
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore", under="ignore"):
+            cb[:, vl * v: vl * (v + 1)] = mat @ basislag
 
     av = {"fun": varfun, **_select_pred_args(varfun, attrvar)}
     av["cen"] = varcen

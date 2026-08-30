@@ -124,7 +124,8 @@ def mkXpred(basis, at, predvar, predlag, cen):
 
 
 def _se(X: np.ndarray, vcov: np.ndarray) -> np.ndarray:
-    return np.sqrt(np.maximum(0, np.sum((X @ vcov) * X, axis=1)))
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore", under="ignore"):
+        return np.sqrt(np.maximum(0, np.sum((X @ vcov) * X, axis=1)))
 
 
 def _resolve_coef(basis, model, coef, vcov, model_link, name, kind):
@@ -349,7 +350,8 @@ def crosspred(basis, model=None, coef=None, vcov=None, model_link=None, at=None,
 
     # lag-specific effects
     Xpred = mkXpred(basis, at, predvar, predlag, cen)
-    matfit = (Xpred @ coef).reshape((len(predlag), len(predvar))).T
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore", under="ignore"):
+        matfit = (Xpred @ coef).reshape((len(predlag), len(predvar))).T
     matse = _se(Xpred, vcov).reshape((len(predlag), len(predvar))).T
 
     # overall cumulative (and incremental cumulative) effects over integer lags

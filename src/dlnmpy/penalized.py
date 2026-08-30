@@ -262,12 +262,14 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
         pen = float(beta @ S @ beta)
         XtWX = (X.T * W) @ X
         A = XtWX + S
-        _, logdetA = np.linalg.slogdet(A)
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore", under="ignore"):
+            _, logdetA = np.linalg.slogdet(A)
         if method == "ml" and Ur.shape[1]:
             # ML integrates out only the penalised coefficients: the log
             # determinant is that of the Hessian projected onto the range space
             # of the penalty (mgcv's MLpenalty1)
-            logdetA = np.linalg.slogdet(Ur.T @ A @ Ur)[1]
+            with np.errstate(divide="ignore", over="ignore", invalid="ignore", under="ignore"):
+                logdetA = np.linalg.slogdet(Ur.T @ A @ Ur)[1]
         logdetS = _logdet_plus_fixed_rank(S, rank_total) if nsp else 0.0
         if fam.scale_known:
             phi = 1.0

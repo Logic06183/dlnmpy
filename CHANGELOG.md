@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 (2026-08-30)
+
+Silences spurious floating-point `RuntimeWarning`s. numpy 2.0.x raises `divide by zero`, `overflow`, `invalid value` and `underflow` warnings from `matmul` on arrays that legitimately carry `NaN` -- a cross-basis has `NaN` in its first `lag` rows by construction -- and from the log-determinant the penalised REML optimiser evaluates while probing extreme smoothing parameters. The values were never affected, but a routine analysis printed a wall of warnings for anyone on Python 3.9 or 3.10, where numpy resolves to 2.0.x. A full Chicago analysis went from about 1400 warnings to 3, and the test suite from 52 to 1; the three that remain come from statsmodels' own IRLS calling `numpy.linalg.pinv`, not from dlnmpy. Results are bit-identical: RR at 33 °C is 0.922319 and at -20 °C 1.329074 on numpy 2.0.2 and 2.5.2 alike.
+
+
 ## 0.5.0 (2026-08-30)
 
 Also reproduces Gasparrini & Armstrong (2013) *BMC Med Res Methodol* 13:1, the methodological paper behind the two-stage design (`examples/bmcmrm_2013.py`): minimum-mortality temperature 17.1 °C, pooled RR 1.101 (1.079-1.124) at 22 °C and 1.309 (1.245-1.376) at 0 °C, I² of 63.8/16.4/63.5%, and all three QAIC totals; 67 of 68 intermediates agree with R to 1e-5..1e-15. That paper selects its lag specification by QAIC, and the pre-0.5.0 implementation would have reversed its published conclusion.
