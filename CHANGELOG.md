@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 (2026-08-30)
+
+Fixes `uncertainty.qaic`, which read the log-likelihood from `results.llf`. For a quasi family statsmodels divides the log-likelihood by the estimated dispersion, so the fit term was scaled by `1/phi`. Because phi differs between candidate models the error did not cancel in a comparison: it favoured the more over-dispersed, typically under-fitted, specification and could reverse the ranking returned by `model_grid`. The Poisson log-likelihood is now evaluated at the fitted values, as in the reference R implementations (R's `logLik()` is NA for quasipoisson for the same reason). New fixtures from R (`tools/make_fixtures_qaic.R`) pin both the QAIC values and the ranking of a six-model grid; the previous test asserted the implementation against itself and so could not detect this.
+
 ## 0.4.0 (2026-08-30)
 
 Plotting redesign: journal and colour themes (`plot.set_theme`), `overlay_slices`, `summary_figure`, R-consistent labels. `dlnmpy.uncertainty`: parametric bootstrap helpers, QAIC and `model_grid`. Theory document extended to cr, attribution, MMT, meta-analysis and penalised fitting. Cubic regression spline basis `cr` (port of mgcv, matches R to 1e-14). Penalised fitting: `fit_pgam`/`fit_pglm` with REML or ML smoothing-parameter selection reproducing `mgcv::gam(paraPen=)` (validated on Poisson, quasi-Poisson, ML, cr/cr and additional lag penalties). Restrained journal-style plot defaults and `plot.set_style()`. `datasets.simulate_cities` (0.3.2).
