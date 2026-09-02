@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.1 (2026-09-02)
+
+**Fixed**
+
+- `dlnm(..., time=)` given a date column killed the interpreter. `datetime64` cast to float is nanoseconds since the epoch, so a fourteen-year daily series was read as 1.2e12 years, the seasonal spline was asked for 8.5e12 degrees of freedom, and `np.linspace` tried to allocate about 68,000 GB; the process was killed by the OS with no Python traceback. Date columns (and `datetime.date` objects) are now converted to day offsets from the first observation, and `time="date"` gives numerically identical results to the equivalent day index. Found by running the published 0.6.0 wheel through a full Chicago analysis in a notebook.
+- The seasonal spline now raises `ValueError` when it would need at least as many degrees of freedom as there are observations, which catches any unit error of this kind rather than exhausting memory.
+- `basis.py` had a conditional whose branches were identical (`thr_value if side == "d" else thr_value`); simplified, with no change in behaviour.
+
+**Changed**
+
+- `ruff` is pinned in the `dev` extra and the lint rule set is selected explicitly. Ruff's default selection widens between releases, so CI could turn red on a linter upgrade rather than on a change to this code.
+
 ## 0.6.0 (2026-09-02)
 
 A second audit against R (`dlnm` 2.4.7 in a fresh R 4.3 install, `mixmeta` 1.2.2), this time on 64 edge cases the fixtures did not cover: negative and sub-period lag ranges, exposure-history matrices with `cumul`, non-integer `bylag` and `crossreduce(type="lag", value=2.5)`, `group`, every basis function with explicit knots or thresholds, the default and `by` prediction grids, `mkcen` corner cases, `logknots`/`equalknots`, `exphist` with `times` and `fill`, and `attrdl` in the forward, reduced-coefficient and daily forms. All 64 agree to 1e-6 or better (most to 1e-12); `mixmeta` REML, BLUPs, predictions, Q/I² and univariate Q agree to 1e-8. The numerical core needed no change. The defects below were all in the Python-only layers.

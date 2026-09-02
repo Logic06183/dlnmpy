@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dlnmpy"
-version = "0.6.0"
+version = "0.6.1"
 description = "Distributed lag non-linear models (DLNM) in Python, a faithful port of the R package dlnm"
 readme = "README.md"
 license = {text = "GPL-2.0-or-later"}
@@ -23,7 +23,7 @@ dependencies = ["numpy>=1.22", "scipy>=1.8", "pandas>=1.4"]
 [project.optional-dependencies]
 models = ["statsmodels>=0.13"]
 plot = ["matplotlib>=3.5"]
-dev = ["pytest>=7", "statsmodels>=0.13", "matplotlib>=3.5", "ruff"]
+dev = ["pytest>=7", "statsmodels>=0.13", "matplotlib>=3.5", "ruff==0.16.5"]
 
 [project.urls]
 Homepage = "https://github.com/Logic06183/dlnmpy"
@@ -42,4 +42,7 @@ testpaths = ["tests"]
 line-length = 110
 
 [tool.ruff.lint]
+# Pin the rule set explicitly: ruff's defaults widen between releases, which
+# would turn CI red on a linter upgrade rather than on a change to this code.
+select = ["E4", "E7", "E9", "F"]
 ignore = ["E701", "E702", "E741"]

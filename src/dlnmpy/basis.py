@@ -137,7 +137,7 @@ def thr(x, thr_value=None, side=None, intercept: bool = False):
     if intercept:
         basis = np.column_stack((np.ones(x.size), basis))
     # keep thr_value as scalar for single-threshold sides, as R does
-    tv = thr_value if side == "d" else thr_value
+    tv = thr_value
     return basis, {"thr_value": tv, "side": side, "intercept": bool(intercept)}
 
 

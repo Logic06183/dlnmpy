@@ -53,6 +53,27 @@ def percentile_of(x, values) -> np.ndarray:
     return 100 * np.searchsorted(xx, v, side="right") / xx.size
 
 
+def _time_index(values) -> np.ndarray:
+    """Days as a float array, whatever the column holds.
+
+    ``time=`` is documented as a day index, but a date column is the obvious
+    thing to reach for and ``np.asarray(dates, dtype=float)`` silently yields
+    nanoseconds since the epoch: fourteen years of daily data become 1.2e12
+    "years" and the seasonal spline is asked for 8e12 degrees of freedom.
+    Datetimes are therefore converted to offsets in days from the first
+    observation, which is what the rest of the function assumes.
+    """
+    arr = np.asarray(values)
+    if np.issubdtype(arr.dtype, np.datetime64):
+        days = (arr - np.nanmin(arr)) / np.timedelta64(1, "D")
+        return np.asarray(days, dtype=float)
+    if arr.dtype == object:                      # e.g. datetime.date objects
+        conv = pd.to_datetime(pd.Series(arr), errors="coerce")
+        if conv.notna().any():
+            return np.asarray((conv - conv.min()).dt.total_seconds() / 86400.0, dtype=float)
+    return np.asarray(values, dtype=float)
+
+
 def _years(t: np.ndarray) -> float:
     return (np.nanmax(t) - np.nanmin(t) + 1) / 365.25
 
@@ -278,9 +299,15 @@ def dlnm(data: pd.DataFrame, outcome: str, exposure: str, lag, argvar=None, argl
     terms = [(name, cb)]
     rhs = []
     if time is not None:
-        t = np.asarray(data[time], dtype=float)
-        df_time = int(round(df_per_year * _years(t)))
-        terms.append((f"ns_{time}", onebasis(data[time], "ns", df=max(df_time, 1))))
+        t = _time_index(data[time])
+        df_time = max(int(round(df_per_year * _years(t))), 1)
+        if df_time >= len(t):
+            raise ValueError(
+                f"the seasonal spline on {time!r} would need {df_time} degrees of "
+                f"freedom for {len(t)} observations. {time!r} is expected to be a "
+                "day index (or a date column); check its units and df_per_year."
+            )
+        terms.append((f"ns_{time}", onebasis(t, "ns", df=df_time)))
     if dow is not None:
         rhs.append(f"C({dow})")
     rhs.extend(controls)
