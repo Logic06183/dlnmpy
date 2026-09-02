@@ -155,3 +155,10 @@ def test_absurd_df_per_year_raises_rather_than_exhausting_memory(chicago):
     with pytest.raises(ValueError, match="degrees of freedom"):
         dl.dlnm(chicago.head(200), outcome="death", exposure="temp", lag=5,
                 time="time", df_per_year=400)
+
+
+def test_version_matches_package_metadata():
+    """__version__ drifted from pyproject.toml once; keep them tied."""
+    from importlib.metadata import version
+
+    assert dl.__version__ == version("dlnmpy")

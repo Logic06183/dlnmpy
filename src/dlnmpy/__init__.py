@@ -33,7 +33,12 @@ from .penalized import PenalizedGLMResults, fit_pgam, fit_pglm
 from .uncertainty import bootstrap, bootstrap_ci, empirical_ci, model_grid, qaic, simulate_pred
 from .workflow import DLNM, dlnm, percentile_knots, percentile_of
 
-__version__ = "0.6.0"
+try:                                    # single source of truth: pyproject.toml
+    from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+    __version__ = _pkg_version("dlnmpy")
+except (ImportError, PackageNotFoundError):  # running from a source tree
+    __version__ = "0.6.1"
 
 __all__ = [
     "onebasis", "crossbasis", "crosspred", "crossreduce", "exphist", "logknots",

@@ -6,6 +6,7 @@
 
 - `dlnm(..., time=)` given a date column killed the interpreter. `datetime64` cast to float is nanoseconds since the epoch, so a fourteen-year daily series was read as 1.2e12 years, the seasonal spline was asked for 8.5e12 degrees of freedom, and `np.linspace` tried to allocate about 68,000 GB; the process was killed by the OS with no Python traceback. Date columns (and `datetime.date` objects) are now converted to day offsets from the first observation, and `time="date"` gives numerically identical results to the equivalent day index. Found by running the published 0.6.0 wheel through a full Chicago analysis in a notebook.
 - The seasonal spline now raises `ValueError` when it would need at least as many degrees of freedom as there are observations, which catches any unit error of this kind rather than exhausting memory.
+- `__version__` was hardcoded in `__init__.py` and had drifted from `pyproject.toml`; it is now read from the installed package metadata, with a test to keep them tied.
 - `basis.py` had a conditional whose branches were identical (`thr_value if side == "d" else thr_value`); simplified, with no change in behaviour.
 
 **Changed**
