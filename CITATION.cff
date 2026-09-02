@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+message: "If you use dlnmpy, please cite it as below, together with the methods papers listed in the README."
+title: "dlnmpy: distributed lag non-linear models in Python"
+type: software
+version: 0.6.0
+date-released: 2026-09-02
+license: GPL-2.0-or-later
+repository-code: "https://github.com/Logic06183/dlnmpy"
+authors:
+  - family-names: Parker
+    given-names: Craig
+keywords:
+  - distributed lag non-linear models
+  - DLNM
+  - environmental epidemiology
+  - time series
+  - temperature
+  - attributable risk
+references:
+  - type: article
+    title: "Distributed lag non-linear models"
+    authors:
+      - family-names: Gasparrini
+        given-names: Antonio
+      - family-names: Armstrong
+        given-names: Ben
+      - family-names: Kenward
+        given-names: Michael G.
+    journal: "Statistics in Medicine"
+    year: 2010
+    volume: 29
+    issue: 21
+    start: 2224
+    end: 2234
+  - type: article
+    title: "Distributed lag linear and non-linear models in R: the package dlnm"
+    authors:
+      - family-names: Gasparrini
+        given-names: Antonio
+    journal: "Journal of Statistical Software"
+    year: 2011
+    volume: 43
+    issue: 8
+    start: 1
+    end: 20

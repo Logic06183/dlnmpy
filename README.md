@@ -1,14 +1,39 @@
 # dlnmpy
 
-Distributed lag non-linear models (DLNMs) in Python.
+[![tests](https://github.com/Logic06183/dlnmpy/actions/workflows/ci.yml/badge.svg)](https://github.com/Logic06183/dlnmpy/actions/workflows/ci.yml)
+![python](https://img.shields.io/badge/python-3.9%20%7C%203.11%20%7C%203.12-blue)
+![licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-green)
 
-`dlnmpy` is a from-first-principles port of the R package [`dlnm`](https://github.com/gasparrini/dlnm) by Antonio Gasparrini and Ben Armstrong. It reproduces the R package's cross-basis construction, prediction and reduction algorithms to machine precision, and it is built so that the same reference tests can be used to validate ports to other languages (Rust, Julia, JavaScript).
+Distributed lag non-linear models (DLNMs) in Python. A port of the R package [`dlnm`](https://github.com/gasparrini/dlnm) by Antonio Gasparrini and Ben Armstrong, checked number for number against R, plus the parts of a temperature-mortality analysis that R leaves to loose scripts: the minimum mortality temperature, attributable fractions, two-stage meta-analysis and the figures.
 
-The package is validated against R on the `chicagoNMMAPS` examples from the `dlnm` vignettes: basis matrices, cross-basis matrices, predictions, confidence intervals and reduced coefficients agree with R to around 1e-12, and the statsmodels fitting path reproduces R's `glm()` coefficients to 1e-14 (see [Validation](#validation)).
+Not affiliated with the authors of `dlnm`. The method is theirs; this repository makes it usable from Python.
+
+## Does it give the same answer as R?
+
+Yes, to the precision below. Every number here comes from the test-suite or from a script in `tools/` or `examples/` that you can run yourself.
+
+| What | Agreement with R | Where |
+|---|---|---|
+| Basis and cross-basis matrices (32 basis specs, 9 cross-bases) | 1e-12 | `tests/`, fixtures from `tools/make_fixtures.R` |
+| `crosspred` / `crossreduce` fits, standard errors, reduced coefficients | 1e-12 | `tests/` |
+| `glm()` coefficients through statsmodels (`fit_glm`) | 1e-14 | `tests/test_model.py` |
+| Five complete analyses end to end, 102 quantities (GLM, OLS, logistic, conditional logistic) | better than 1e-8, most 1e-12 | `tools/side_by_side.py` |
+| 64 edge cases (negative lags, sub-periods, exposure histories, `bylag`, `group`, explicit knots, `attrdl` variants) | 1e-6 or better, most 1e-12 | audit for 0.6.0, see `CHANGELOG.md` |
+| `attrdl.R`, `findmin.R` (attributable risk, MMT) | 1e-8 | `tests/test_attribution.py` |
+| `mixmeta` (REML, BLUPs, predictions, Q, I²) | 1e-5 or better | `tests/test_meta.py` |
+| `mgcv::gam` penalised DLNMs (scores, smoothing parameters, coefficients) | 1e-5, 1e-4, 1e-4 | `tests/test_penalized.py` |
+| Gasparrini et al. 2015 *Lancet*, England and Wales, 10 regions | identical MMT percentiles; AF to 4e-5 points | `examples/lancet_2015.py` |
+| Gasparrini and Armstrong 2013 *BMC MRM* | 67 of 68 intermediates to 1e-5..1e-15 | `examples/bmcmrm_2013.py` |
+
+If you find a number that differs from R, open an issue with the R code and the Python code side by side. That is the most useful contribution this project can get.
+
+## Who it is for
+
+Time-series studies of temperature, air pollution or any lagged exposure against daily counts (quasi-Poisson), case-crossover and matched case-control designs (conditional logistic), cohort studies with exposure histories (`exphist`), and multi-location studies pooled with multivariate meta-analysis. Anything you would reach for `dlnm` in R to do, and the surrounding workflow: MMT with an interval, attributable numbers by cold, heat, extreme and moderate, the standard figures.
 
 ## Why
 
-DLNMs are the standard method for exposure-lag-response associations in environmental epidemiology, above all for temperature and mortality. The methodology lives in one R package. That is a problem for teams working in Python (Databricks, scikit-learn pipelines, deep learning workflows) and for anyone who wants to run the models in a compiled language at scale. This repository sets out to make the method itself portable: the algorithms are written down as a language-neutral specification, the numerical behaviour is pinned by fixtures generated from R, and the Python implementation is the first port.
+DLNMs are the standard method for exposure-lag-response associations in environmental epidemiology, above all for temperature and mortality. The methodology lives in one R package. That is a problem for teams working in Python (Databricks, scikit-learn pipelines, deep learning workflows) and for anyone who wants to run the models in a compiled language at scale. This repository sets out to make the method itself portable: the algorithms are written down as a language-neutral specification (`docs/theory.md`), the numerical behaviour is pinned by fixtures generated from R, and the Python implementation is the first port.
 
 ## Installation
 
@@ -166,13 +191,15 @@ Where the two disagree it is because `mixmeta` stopped at its iteration limit: o
 
 ## Validation
 
+The table at the top summarises this section; the detail is here for anyone who wants to check the claims.
+
 ### A published analysis, reproduced whole
 
 `examples/lancet_2015.py` reproduces the England & Wales analysis of
 
 > Gasparrini A, Guo Y, Hashizume M, et al. Mortality risk attributable to high and low ambient temperature: a multicountry observational study. *The Lancet* 2015;**386**(9991):369-375.
 
-from the author's [public code and data](https://github.com/gasparrini/2015_gasparrini_Lancet_Rcodedata) — 10 regions, 1993-2006, 7,573,716 deaths — running all five stages: a DLNM per region, reduction to the overall cumulative curve, multivariate meta-regression and BLUPs, the minimum-mortality temperature, and attributable deaths with empirical intervals.
+from the author's [public code and data](https://github.com/gasparrini/2015_gasparrini_Lancet_Rcodedata) - 10 regions, 1993-2006, 7,573,716 deaths - running all five stages: a DLNM per region, reduction to the overall cumulative curve, multivariate meta-regression and BLUPs, the minimum-mortality temperature, and attributable deaths with empirical intervals.
 
 |                              | dlnmpy                | R                 |
 |------------------------------|-----------------------|-------------------|
@@ -235,6 +262,22 @@ examples/            vignette reproduction
 2. Parametric-bootstrap intervals for any derived quantity, and a Bayesian route (same design matrix in PyMC/numpyro).
 3. Multilevel meta-analysis (nested random levels, as in `mixmeta`'s extended framework) and longitudinal/repeated-measures structures.
 4. A Rust core with Python bindings, validated with the same fixtures.
+
+## Status
+
+Alpha. The numerical core has been stable since 0.4 and is pinned by the fixtures; the API of `dlnm()` and the plotting functions is new in 0.6.0 and may still change. Not on PyPI yet (install from GitHub above). Known gaps are in the roadmap below; the penalised fitter uses numerical derivatives and is slower than mgcv.
+
+## Contributing
+
+See `CONTRIBUTING.md`. The rule is numerical equivalence with R: changes to the core keep `pytest` green against the fixtures, and features that exist in R come with fixtures from `tools/make_fixtures.R`. Ports to Rust, Julia or JavaScript validated against the same fixtures are welcome.
+
+## How to cite
+
+There is no paper for `dlnmpy`. Cite the methods papers below for the models, and the software as:
+
+> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.6.0). 2026. https://github.com/Logic06183/dlnmpy
+
+A `CITATION.cff` is in the repository, so GitHub's "Cite this repository" button gives the same thing in BibTeX or APA. No DOI yet.
 
 ## Prior work
 
