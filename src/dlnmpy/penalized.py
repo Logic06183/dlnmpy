@@ -140,9 +140,16 @@ class PenalizedGLMResults:
     def edf_total(self) -> float:
         return float(np.sum(self.edf))
 
+    @property
+    def fittedvalues(self) -> np.ndarray:
+        """Alias of ``fitted_values`` (statsmodels spelling), so helpers such as
+        :func:`dlnmpy.qaic` accept either kind of result."""
+        return self.fitted_values
+
     def edf_by(self, prefix: str) -> float:
-        """Effective degrees of freedom of the columns starting with ``prefix``."""
-        idx = [i for i, n in enumerate(self.params.index) if n.startswith(prefix)]
+        """Effective degrees of freedom of the basis named ``prefix`` (the
+        ``name`` given to ``to_dataframe``)."""
+        idx = _columns_of(list(self.params.index), prefix)
         return float(np.sum(self.edf[idx]))
 
     def summary(self) -> str:
@@ -156,6 +163,18 @@ class PenalizedGLMResults:
     def __repr__(self):
         return (f"PenalizedGLMResults(family={self.family!r}, method={self.method!r}, "
                 f"sp={np.round(self.sp, 4).tolist()}, edf={self.edf_total:.2f}, scale={self.scale:.4f})")
+
+
+def _columns_of(names: list, prefix: str) -> list:
+    """Indices of the design columns that belong to the basis called
+    ``prefix``: the name followed by a column label of the form ``v1_l1`` /
+    ``v1.l1`` (cross-basis) or ``b1`` (one-basis), as ``to_dataframe`` writes
+    them. A bare ``startswith`` also picks up the columns of a second basis
+    whose name extends the first (``cb`` and ``cb_o3``), and the penalty or the
+    edf would silently be applied to both. Same rule as ``model._match``."""
+    import re
+    pat = re.compile(rf"^{re.escape(prefix)}[._]?(v\d+[._]l\d+|b\d+)$")
+    return [i for i, n in enumerate(names) if n == prefix or pat.match(n)]
 
 
 # ----------------------------------------------------------------------------
@@ -364,10 +383,19 @@ def fit_pgam(formula: str, data, penalties: dict, family: str = "quasipoisson",
     model = smf.glm(formula, data=data, family=smfam, missing="drop")
     X = pd.DataFrame(model.exog, columns=model.exog_names)
     y = model.endog
+    # an offset or weights given for every row of ``data`` must follow the
+    # rows that the NaN drop removed
+    dropped = np.asarray(getattr(model.data, "missing_row_idx", []), dtype=int)
+    if dropped.size:
+        keep = np.setdiff1d(np.arange(len(data)), dropped)
+        for key in ("offset", "weights"):
+            v = kwargs.get(key)
+            if v is not None and np.size(v) == len(data):
+                kwargs[key] = np.asarray(v, dtype=float)[keep]
     p = X.shape[1]
     Slist, names = [], []
     for prefix, pen in penalties.items():
-        cols = [i for i, c in enumerate(X.columns) if c.startswith(prefix)]
+        cols = _columns_of(list(X.columns), prefix)
         mats = [v for k, v in pen.items() if isinstance(v, np.ndarray) and k not in ("rank", "sp")] if isinstance(pen, dict) else list(pen)
         labels = [k for k, v in pen.items() if isinstance(v, np.ndarray) and k not in ("rank", "sp")] if isinstance(pen, dict) else [f"{prefix}{i + 1}" for i in range(len(mats))]
         for lab, M in zip(labels, mats):

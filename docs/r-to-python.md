@@ -59,6 +59,7 @@ If the model was fitted elsewhere (R, Stan, a Rust fitter), pass `coef` and `vco
 - **Warnings and messages.** R prints a message when the centring value is chosen automatically; Python is silent (`pred.cen` holds the value).
 - **Row names.** For a matrix `at`, R labels predictions with the row names; Python uses the row index `0..n-1` in `pred.predvar`.
 - **`crosspred` for `mgcv::gam` smooths** built with `s(x, lag, bs="cb")` (`type="gam"` in R) is not implemented; the `paraPen` route is, through `fit_pgam` (see `penalized.md`).
+- **`ps` with too few df.** R builds `ps(df=4)` (degree 3) and only fails later, inside `crosspred()`, when the basis is rebuilt from its knots. `dlnmpy.ps` raises at construction with the minimum df in the message; no basis that R could predict from is refused.
 - **Missing values in `x`** produce NaN rows in the basis and cross-basis, as in R. `fit_glm` drops them (`missing="drop"`).
 
 ## Objects

@@ -18,7 +18,7 @@ Typical workflow::
     pred.plot("overall")
 """
 
-from . import attribution, basis, datasets, meta, plot, uncertainty
+from . import attribution, basis, datasets, meta, plot, uncertainty, workflow
 from ._rcompat import pretty, quantile7
 from .basis import bs, cr, integer, lin, ns, poly, ps, strata, thr
 from .core import CrossBasis, OneBasis, crossbasis, onebasis
@@ -30,9 +30,10 @@ from .predict import CrossPred, CrossReduce, crosspred, crossreduce
 from .attribution import attr_table, attrdl, findmin, mmt, simulate_coef
 from .meta import MixMeta, mixmeta, predict_reduced, stack_reduced
 from .penalized import PenalizedGLMResults, fit_pgam, fit_pglm
-from .uncertainty import bootstrap, empirical_ci, model_grid, qaic, simulate_pred
+from .uncertainty import bootstrap, bootstrap_ci, empirical_ci, model_grid, qaic, simulate_pred
+from .workflow import DLNM, dlnm, percentile_knots, percentile_of
 
-__version__ = "0.5.1"
+__version__ = "0.6.0"
 
 __all__ = [
     "onebasis", "crossbasis", "crosspred", "crossreduce", "exphist", "logknots",
@@ -42,4 +43,5 @@ __all__ = [
     "lag_matrix", "mklag", "seqlag", "fit_glm", "fit_clogit", "design_matrix", "extract_coef_vcov",
     "get_link", "pretty", "quantile7", "basis", "datasets", "attribution", "plot", "uncertainty",
     "attrdl", "findmin", "mmt", "attr_table", "simulate_coef", "meta", "mixmeta", "MixMeta", "predict_reduced", "stack_reduced",
+    "dlnm", "DLNM", "percentile_knots", "percentile_of", "workflow", "bootstrap_ci",
 ]

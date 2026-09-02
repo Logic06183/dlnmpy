@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.6.0 (2026-09-02)
+
+A second audit against R (`dlnm` 2.4.7 in a fresh R 4.3 install, `mixmeta` 1.2.2), this time on 64 edge cases the fixtures did not cover: negative and sub-period lag ranges, exposure-history matrices with `cumul`, non-integer `bylag` and `crossreduce(type="lag", value=2.5)`, `group`, every basis function with explicit knots or thresholds, the default and `by` prediction grids, `mkcen` corner cases, `logknots`/`equalknots`, `exphist` with `times` and `fill`, and `attrdl` in the forward, reduced-coefficient and daily forms. All 64 agree to 1e-6 or better (most to 1e-12); `mixmeta` REML, BLUPs, predictions, Q/I² and univariate Q agree to 1e-8. The numerical core needed no change. The defects below were all in the Python-only layers.
+
+**Fixed**
+
+- `PenalizedGLMResults.edf_by("cb")` summed the effective df of every column whose name *started with* `cb`, so with a second basis called `cb_o3` it silently reported the two together (38.1 where the temperature basis had 9.4). `fit_pgam` used the same match to place the penalties and failed with a shape error in that case. Both now match a basis name the way `crosspred` does (name plus a `v1_l1`/`b1` label).
+- `qaic()` raised `AttributeError` on a penalised fit. It now accepts them, using the total effective degrees of freedom as the parameter count (Gasparrini et al. 2017); `PenalizedGLMResults` gained a `fittedvalues` alias.
+- `fit_pgam(..., offset=)` with a full-length offset mis-aligned it after rows with missing values were dropped; it now follows the same rows.
+- `overlay_slices(labels=...)` with too few labels raised `IndexError` from inside matplotlib; it now says what is wrong.
+- `qtest()` p-values were computed as `1 - cdf` and rounded to exactly 0 for large Q; the survival function is used.
+- `bootstrap_ci` is exported.
+- `mkat` passes `min.n = nobs/2` to `pretty()` as R does (no case where it changes the grid was found in 20,000 random ranges, so this is fidelity rather than a fix).
+
+**One R defect not reproduced**
+
+- `ps(df=4)` (degree 3) builds in R and then fails inside `crosspred()` when the basis is rebuilt from its knots: a lag basis you can never predict from. `dlnmpy.ps` refuses it at construction with the minimum df in the message.
+
+**Beyond R: the workflow**
+
+- `dl.dlnm(data, outcome, exposure, lag, argvar, arglag, time, df_per_year, dow, controls, family, offset, group)` fits the whole model in one call and returns a `DLNM` bound to its data: `.mmt()`, `.rr_at(percentiles)`, `.attributable()`, `.predict(percentiles=...)`, `.reduce()`, `.qaic()`, `.summary()`, `.figure()`, `.plot()`, `.summary_figure()`. Defaults are the usual specification (natural spline with knots at the 10th, 75th and 90th percentiles; lag spline with log-spaced knots; 7 df per year of time). `ps`/`cr` bases route to the penalised fitter. Tested to agree with the explicit pipeline to 1e-12.
+- `CrossPred.to_dataframe()` returns the long ("tidy") table of lag-specific (or cumulative) effects.
+- `percentile_knots(x, [10, 75, 90])` and `percentile_of(x, values)`.
+
+**Beyond R: the figures**
+
+- `plot_overall_risk`: the exposure-response figure of a temperature-mortality paper (cold and heat sides in two hues, minimum-risk value with its interval, percentile axis along the top, exposure histogram underneath). `plot_attributable`: attributable fractions or numbers by component with intervals.
+- Styling is applied per figure through `plot.style()` (an `rc_context`), so plots look the same everywhere and the caller's rcParams are untouched. The 3D surface is coloured by value with a fine translucent mesh instead of the black wireframe, and no longer clips its z label; the contour's null-effect line is dashed and the frame closed.
+- `examples/gallery.py` renders every figure in both themes.
+
+
 ## 0.5.1 (2026-08-30)
 
 Silences spurious floating-point `RuntimeWarning`s. numpy 2.0.x raises `divide by zero`, `overflow`, `invalid value` and `underflow` warnings from `matmul` on arrays that legitimately carry `NaN` -- a cross-basis has `NaN` in its first `lag` rows by construction -- and from the log-determinant the penalised REML optimiser evaluates while probing extreme smoothing parameters. The values were never affected, but a routine analysis printed a wall of warnings for anyone on Python 3.9 or 3.10, where numpy resolves to 2.0.x. A full Chicago analysis went from about 1400 warnings to 3, and the test suite from 52 to 1; the three that remain come from statsmodels' own IRLS calling `numpy.linalg.pinv`, not from dlnmpy. Results are bit-identical: RR at 33 °C is 0.922319 and at -20 °C 1.329074 on numpy 2.0.2 and 2.5.2 alike.

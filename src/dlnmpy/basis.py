@@ -197,6 +197,13 @@ def ps(x, df: int = 10, knots=None, degree: int = 3, intercept: bool = False,
         nik = int(df) - degree + 2 - intercept
         if nik <= 1:
             raise ValueError("basis dimension too small for b-spline degree")
+        # R accepts df in {degree + intercept, degree + 1} here and then fails
+        # with the same message from crosspred(), where the basis is rebuilt
+        # from its knots: a lag basis ps(df=4) builds but can never be
+        # predicted from. Fail now, where the fix (a larger df) is obvious.
+        if int(df) - degree <= 1:
+            raise ValueError(f"'df' must be at least {degree + 2} for a P-spline of degree {degree} "
+                             "(a smaller basis cannot be rebuilt at the prediction stage)")
         span = rng[1] - rng[0]
         if knots is not None and np.asarray(knots).size == 2:
             kk = np.asarray(knots, dtype=float)

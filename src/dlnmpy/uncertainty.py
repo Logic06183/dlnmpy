@@ -22,7 +22,7 @@ from scipy.special import gammaln
 from .attribution import simulate_coef
 from .predict import CrossPred, crosspred
 
-__all__ = ["bootstrap", "simulate_pred", "empirical_ci", "qaic", "model_grid"]
+__all__ = ["bootstrap", "simulate_pred", "bootstrap_ci", "empirical_ci", "qaic", "model_grid"]
 
 
 def bootstrap(fn, coef, vcov, nsim: int = 1000, seed=None, coefsim=None):
@@ -97,9 +97,15 @@ def qaic(results) -> float:
     ``sum(dpois(y, fitted, log = TRUE))`` by hand.
     """
     phi = float(getattr(results, "scale", 1.0))
-    k = int(np.size(results.params))
+    edf = getattr(results, "edf", None)
+    # for a penalised fit the parameter count is the total effective degrees
+    # of freedom (Gasparrini et al. 2017 compare penalised DLNMs this way)
+    k = float(np.sum(edf)) if edf is not None else int(np.size(results.params))
     mu = np.asarray(results.fittedvalues, dtype=float)
-    y = np.asarray(results.model.endog, dtype=float)
+    endog = getattr(results, "endog", None)
+    if endog is None:
+        endog = results.model.endog
+    y = np.asarray(endog, dtype=float)
     llf = float(np.sum(y * np.log(mu) - mu - gammaln(y + 1.0)))
     return -2 * llf + 2 * phi * k
 

@@ -262,7 +262,7 @@ class MixMeta:
                 Q.append(float(np.sum(res ** 2 / np.array([S[j, j] for S in self.S]))))
                 df.append(self.m - self.p)
         Q, df = np.array(Q), np.array(df)
-        pval = 1 - chi2.cdf(Q, df)
+        pval = chi2.sf(Q, df)  # survival function: exact in the tail where 1 - cdf rounds to 0
         i2 = np.maximum((Q - df) / Q * 100, 0)
         return {"Q": Q, "df": df, "pvalue": pval, "I2": i2}
 

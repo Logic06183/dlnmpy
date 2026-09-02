@@ -42,7 +42,10 @@ def mkat(at, from_, to, by, rng, lag, bylag):
         lo = rng[0] if from_ is None else from_
         hi = rng[1] if to is None else to
         nobs = 50 if by is None else max(1, (rng[1] - rng[0]) / by)
-        pr = pretty([lo, hi], n=nobs)
+        # R: pretty(c(from, to), n = nobs, min.n = nobs / 2). Without min.n
+        # pretty() falls back to n %/% 3 and, on a narrow range, can return a
+        # coarser grid than R's.
+        pr = pretty([lo, hi], n=nobs, min_n=nobs / 2)
         pr = pr[(pr >= lo) & (pr <= hi)]
         if by is None:
             return pr
@@ -270,6 +273,28 @@ class CrossPred:
         fit, se = self.matfit[:, j], self.matse[:, j]
         return pd.DataFrame({"var": self.predvar, "fit": f(fit), "low": f(fit - self.z * se),
                              "high": f(fit + self.z * se)})
+
+    def to_dataframe(self, exp: bool | None = None, cumul: bool = False):
+        """Long ("tidy") table of the lag-specific effects: one row per
+        predictor value and lag, with columns ``var``, ``lag``, ``fit``,
+        ``se``, ``low``, ``high``. With ``cumul=True`` the incremental
+        cumulative effects over integer lags are returned instead. Ready for
+        pandas, seaborn, plotnine or export.
+        """
+        import pandas as pd
+        e = self.is_exp if exp is None else exp
+        f = np.exp if e else (lambda a: a)
+        if cumul:
+            if self.cumfit is None:
+                raise ValueError("set cumul=True in crosspred() to get cumulative effects")
+            fit, se, lags = self.cumfit, self.cumse, seqlag(self.lag)
+        else:
+            fit, se, lags = self.matfit, self.matse, self.predlag
+        var = np.repeat(self.predvar, len(lags))
+        lag = np.tile(lags, len(self.predvar))
+        fit, se = fit.ravel(), se.ravel()
+        return pd.DataFrame({"var": var, "lag": lag, "fit": f(fit), "se": se,
+                             "low": f(fit - self.z * se), "high": f(fit + self.z * se)})
 
     def summary(self) -> str:
         lines = ["PREDICTIONS:", f"values: {len(self.predvar)}"]

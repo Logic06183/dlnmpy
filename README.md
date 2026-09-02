@@ -31,7 +31,28 @@ Requires Python 3.9+, numpy, scipy and pandas. `statsmodels` is needed to fit mo
 
 ## Quick start
 
-The workflow is the same as in R: build a cross-basis, include it in a regression model, predict.
+The whole temperature-mortality workflow is one call. `dlnm()` builds the cross-basis, adds the seasonal spline and day of week, fits the quasi-Poisson model, and the result knows its own data, so the minimum mortality temperature, the relative risks at chosen percentiles, the attributable fractions and the figure are each a method:
+
+```python
+import dlnmpy as dl
+
+chicago = dl.datasets.chicago_nmmaps()
+
+fit = dl.dlnm(chicago, outcome="death", exposure="temp", lag=21,
+              argvar={"fun": "bs", "degree": 2, "knots": dl.percentile_knots(chicago.temp, [10, 75, 90])},
+              arglag={"fun": "ns", "knots": dl.logknots(21, 3)},
+              time="time", df_per_year=7, dow="dow")
+
+fit.mmt()                    # MMTResult(mmt=25.50, 95% CI (25.20, 25.80), percentile=94.2)
+fit.rr_at([1, 99])           # RR (95% CI) at the 1st and 99th percentiles, relative to the MMT
+fit.attributable()           # total, cold, heat, extreme and moderate: AN and AF with intervals
+fit.figure(xlab="Temperature (°C)")   # the curve, the MMT, a percentile axis, the exposure distribution
+fit.predict(percentiles=[1, 99]).to_dataframe()   # tidy long table: var, lag, fit, se, low, high
+```
+
+![overall risk](examples/figures/overall_risk_colour.png)
+
+Underneath, the workflow is the same as in R and every step is available on its own: build a cross-basis, include it in a regression model, predict.
 
 ```python
 import numpy as np
@@ -96,9 +117,13 @@ The cross-basis columns are named `v{i}.l{j}` as in R (or `{name}_v{i}_l{j}` in 
 
 ## Figures
 
-Plots are designed for print: neutral sans-serif, thin marks, hairline gridlines, no top or right spines, a light-grey interval band and a dashed null-effect line, with `plot.set_theme("journal")` (greyscale, the default) or `plot.set_theme("colour")` (a colour-blind-safe palette validated for adjacent-pair separation: blue estimate, blue-to-red diverging surface with a neutral grey midpoint, fixed-order hues for overlays). Besides the four R plot types, `overlay_slices` draws several curves on one axis with a legend (the R `plot()` + `lines()` idiom) and `summary_figure` gives the standard four-panel figure (overall curve, surface, lag-response and exposure-response slices). All functions return matplotlib axes, so anything can be adjusted.
+Plots are designed for print: neutral sans-serif, thin marks, hairline gridlines, no top or right spines, a light-grey interval band and a dashed null-effect line. The style is applied per figure (`plot.style()` is a context manager every plotting function uses), so a dlnmpy plot looks the same in a notebook, a script or inside someone else's figure, and your global matplotlib settings are left alone. `plot.set_theme("journal")` (greyscale, the default) or `plot.set_theme("colour")` (a colour-blind-safe palette validated for adjacent-pair separation: blue estimate, blue-to-red diverging surface with a neutral grey midpoint, blue for cold and red for heat, fixed-order hues for overlays).
+
+Besides the four R plot types (`overall`, `slices`, `contour`, `3d`), there are the figures papers actually print: `plot_overall_risk` (the overall cumulative curve with cold and heat sides, the minimum-risk value and its interval, exposure percentiles along the top and the exposure distribution underneath, as in Gasparrini et al. 2015), `plot_attributable` (attributable fractions or numbers by component with intervals), `overlay_slices` (several curves on one axis with a legend, the R `plot()` + `lines()` idiom) and `summary_figure` (the four-panel figure below). All functions return matplotlib axes, so anything can be adjusted. `examples/gallery.py` renders every figure in both themes.
 
 ![summary figure](examples/figures/summary_colour.png)
+
+![attributable](examples/figures/attributable_colour.png)
 
 ## Uncertainty beyond the delta method, and model selection
 
@@ -165,7 +190,7 @@ The minimum-mortality percentile matches as an exact integer in all 10 regions; 
 `tools/make_fixtures.R` runs the R package on the vignette examples and writes every intermediate object to `tests/fixtures/` as CSV and JSON: 32 basis-function specifications (with and without values outside the fitting range), 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The Python test-suite compares against these numbers with absolute tolerances of 1e-10 to 1e-12.
 
 ```
-pytest            # 106 tests
+pytest            # 117 tests
 ```
 
 A second, independent check lives in `tools/side_by_side.R` / `tools/side_by_side.py`: five complete analyses are run end to end in both languages, including the model fit, on data and specifications not used for the unit-test fixtures (the `drug` trial with OLS on exposure histories, the `nested` case-control study with conditional logistic regression, a logistic and a quasi-Poisson Chicago model with threshold, polynomial, strata and integer bases, 80% and 90% intervals, exposure-history matrices passed to `at`, and a four-city simulation with known truth). All 102 quantities compared agree to better than 1e-8; most to 1e-12. The report is printed by `python tools/side_by_side.py` and the test-suite runs it too.
@@ -191,7 +216,8 @@ src/dlnmpy/
   model.py       coefficient/vcov extraction, fit_glm (statsmodels), design_matrix
   penalty.py     cbpen
   penalized.py   fit_pgam / fit_pglm: penalised IRLS with REML/ML smoothing (mgcv's criterion)
-  plot.py        matplotlib plots (journal style; plot.set_style())
+  plot.py        matplotlib plots (journal and colour themes; plot.style())
+  workflow.py    dlnm(): one call from a data frame to MMT, RR table, attributable fractions, figure
   datasets.py    chicagoNMMAPS, drug, nested
 docs/
   theory.md          the mathematics, written as a language-neutral specification
