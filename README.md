@@ -38,6 +38,8 @@ DLNMs are the standard method for exposure-lag-response associations in environm
 ## Installation
 
 ```bash
+pip install dlnmpy
+# or the development version
 pip install git+https://github.com/Logic06183/dlnmpy.git
 # or, for development
 git clone https://github.com/Logic06183/dlnmpy.git && cd dlnmpy
@@ -265,7 +267,7 @@ examples/            vignette reproduction
 
 ## Status
 
-Alpha. The numerical core has been stable since 0.4 and is pinned by the fixtures; the API of `dlnm()` and the plotting functions is new in 0.6.0 and may still change. Not on PyPI yet (install from GitHub above). Known gaps are in the roadmap below; the penalised fitter uses numerical derivatives and is slower than mgcv.
+Alpha. The numerical core has been stable since 0.4 and is pinned by the fixtures; the API of `dlnm()` and the plotting functions is new in 0.6.0 and may still change. Known gaps are in the roadmap below; the penalised fitter uses numerical derivatives and is slower than mgcv.
 
 ## Contributing
 
