@@ -53,6 +53,8 @@ def poly(x, degree: int = 1, scale=None, intercept: bool = False):
     with intercept). ``scale`` defaults to ``max(abs(x))``."""
     x = _asvec(x)
     degree = int(degree)
+    if degree < 1:
+        raise ValueError("'degree' must be a positive integer")
     if scale is None:
         scale = float(np.nanmax(np.abs(x)))
     powers = np.arange(1 - int(intercept), degree + 1)
@@ -324,6 +326,10 @@ def cr(x, df: int = 10, knots=None, intercept: bool = False, fx: bool = False, S
         knots = quantile7(np.unique(xx), np.linspace(0, 1, int(df) + (not intercept)))
     else:
         knots = np.asarray(knots, dtype=float).ravel()
+        if knots.size < 3:
+            # mgcv: "number of supplied knots != k for a cr smooth"; with fewer
+            # than three the basis has one column and a zero penalty
+            raise ValueError("'knots' must have at least 3 values for a cr basis")
         df = knots.size - (not intercept)
     knots = np.sort(knots)
     F, Sfull = _cr_FS(knots)

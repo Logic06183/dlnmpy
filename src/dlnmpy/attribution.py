@@ -25,6 +25,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import warnings
+
 import numpy as np
 
 from ._rcompat import quantile7
@@ -78,7 +80,7 @@ def _xpred_all(basis, at, cen):
 def attrdl(x, basis, cases, model=None, coef=None, vcov=None, model_link=None,
            type: str = "af", dir: str = "back", tot: bool = True, cen=None,
            range=None, sim: bool = False, nsim: int = 5000, seed=None,
-           coefsim=None, name: str = "cb"):
+           coefsim=None, name: str = "cb", group=None):
     """Attributable fraction or number from a DLNM (port of ``attrdl.R``).
 
     Parameters
@@ -115,22 +117,42 @@ def attrdl(x, basis, cases, model=None, coef=None, vcov=None, model_link=None,
     seed, coefsim
         Random seed, or an explicit ``(k, nsim)`` matrix of simulated
         coefficients (e.g. from :func:`simulate_coef`) to share across calls.
+    group : array_like, optional
+        Group labels of the same length as ``x`` when ``basis`` was built
+        with ``group=`` (several series stacked). Lagged exposures are then
+        formed within groups, as the cross-basis was, so the first ``lag``
+        rows of every series are excluded. Without it the lags would run
+        across the boundary from one series into the next. (The reference
+        ``attrdl.R`` has no such argument.) The total is one pooled
+        fraction, ``sum(an) / sum(cases)`` over the rows with a complete
+        lag history, applied to all cases; it is not the sum of per-group
+        totals, which weight each group by its own ratio of all cases to
+        cases with a complete history. The two differ by a fraction of a
+        percent when the first ``lag`` days of a series are unusual.
     """
     if type not in ("an", "af"):
         raise ValueError("'type' must be 'an' or 'af'")
     out = _attr_core(x, basis, cases, model, coef, vcov, model_link, dir, tot, cen, range,
-                     sim, nsim, seed, coefsim, name)
+                     sim, nsim, seed, coefsim, name, group)
     if sim:
         return out["ansim"] if type == "an" else out["afsim"]
     return out["an"] if type == "an" else out["af"]
 
 
 def _attr_core(x, basis, cases, model, coef, vcov, model_link, dir, tot, cen, range,
-               sim, nsim, seed, coefsim, name):
+               sim, nsim, seed, coefsim, name, group=None):
     if dir not in ("back", "forw"):
         raise ValueError("'dir' must be 'back' or 'forw'")
     if not isinstance(basis, CrossBasis):
         raise TypeError("'basis' must be a CrossBasis")
+    if group is not None:
+        group = np.asarray(group)
+        if group.shape[0] != np.shape(x)[0]:
+            raise ValueError("'group' and 'x' must have the same length")
+    elif basis.group is not None and np.ndim(x) == 1:
+        warnings.warn("the cross-basis was built with 'group' but attrdl() was not given one: "
+                      "lagged exposures will run across group boundaries. Pass group=.",
+                      UserWarning, stacklevel=3)
     if cen is None:
         cen = basis.argvar.get("cen")
     if cen is None:
@@ -145,7 +167,7 @@ def _attr_core(x, basis, cases, model, coef, vcov, model_link, dir, tot, cen, ra
     lag = basis.lag
     nlag = int(lag[1] - lag[0]) + 1
     if x.ndim == 1:
-        at = lag_matrix(x, seqlag(lag)) if dir == "back" else np.tile(x[:, None], (1, nlag))
+        at = lag_matrix(x, seqlag(lag), group=group) if dir == "back" else np.tile(x[:, None], (1, nlag))
     else:
         if dir == "forw":
             raise ValueError("'x' must be a vector when dir='forw'")
@@ -167,7 +189,7 @@ def _attr_core(x, basis, cases, model, coef, vcov, model_link, dir, tot, cen, ra
         cases = cases.ravel()
         den = float(np.nansum(cases))
         if dir == "forw":
-            fut = lag_matrix(cases, -seqlag(lag))
+            fut = lag_matrix(cases, -seqlag(lag), group=group)
             cases = np.mean(fut, axis=1)
 
     # coefficients (full cross-basis or reduced predictor-space estimates)
@@ -305,7 +327,7 @@ def mmt(basis, model=None, coef=None, vcov=None, x=None, from_=None, to=None, by
 # ----------------------------------------------------------------------------
 def attr_table(x, basis, cases, model=None, coef=None, vcov=None, model_link=None,
                cen=None, dir: str = "back", extreme_percentiles=(2.5, 97.5),
-               ci_level: float = 0.95, nsim: int = 5000, seed=None, name: str = "cb"):
+               ci_level: float = 0.95, nsim: int = 5000, seed=None, name: str = "cb", group=None):
     """Attributable numbers and fractions for total, cold and heat (and
     extreme/moderate components), with empirical confidence intervals.
 
@@ -317,6 +339,11 @@ def attr_table(x, basis, cases, model=None, coef=None, vcov=None, model_link=Non
     over lags, which is not additive (the R reference behaves the same).
     Returns a pandas DataFrame with columns ``component``, ``range``,
     ``an``, ``an_low``, ``an_high``, ``af``, ``af_low``, ``af_high``.
+
+    If ``cen`` lies beyond one of the extreme percentiles the corresponding
+    "moderate" range is empty and the "extreme" range is cut at ``cen``,
+    so that no component straddles the reference. ``group`` is as in
+    :func:`attrdl`.
     """
     import pandas as pd
 
@@ -330,6 +357,8 @@ def attr_table(x, basis, cases, model=None, coef=None, vcov=None, model_link=Non
     ranges = {"total": (xmin, xmax), "cold": (xmin, cen), "heat": (cen, xmax)}
     if extreme_percentiles is not None:
         plo, phi = quantile7(x, np.asarray(extreme_percentiles) / 100)
+        # keep every component on one side of the reference
+        plo, phi = min(float(plo), cen), max(float(phi), cen)
         ranges.update({
             "extreme cold": (xmin, float(plo)), "moderate cold": (float(plo), cen),
             "moderate heat": (cen, float(phi)), "extreme heat": (float(phi), xmax),
@@ -343,7 +372,8 @@ def attr_table(x, basis, cases, model=None, coef=None, vcov=None, model_link=Non
     a = (1 - ci_level) / 2
     rows = []
     for comp, rng in ranges.items():
-        o = _attr_core(x, basis, cases, None, c, v, model_link, dir, True, cen, rng, True, nsim, None, coefsim, name)
+        o = _attr_core(x, basis, cases, None, c, v, model_link, dir, True, cen, rng, True, nsim, None, coefsim,
+                       name, group)
         rows.append({"component": comp, "range": rng, "an": o["an"],
                      "an_low": float(np.quantile(o["ansim"], a)), "an_high": float(np.quantile(o["ansim"], 1 - a)),
                      "af": o["af"], "af_low": float(np.quantile(o["afsim"], a)), "af_high": float(np.quantile(o["afsim"], 1 - a))})

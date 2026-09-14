@@ -83,6 +83,7 @@ def test_other_structures_and_univariate(R, inputs):
 
 def test_two_stage_pipeline(R):
     """Stage 1 in Python (crossreduce per city), stage 2 pooled curve versus R."""
+    pytest.importorskip("statsmodels")
     sim = pd.read_csv(FIX / "meta_sim.csv")
     reds = []
     for k, d in sim.groupby("city"):

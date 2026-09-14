@@ -20,7 +20,7 @@ The public API mirrors the R package so that existing R analyses translate almos
 | `crosspred(cb, model, from=-10, to=30, by=1, cen=21)` | `dl.crosspred(cb, model, from_=-10, to=30, by=1, cen=21, name="cb")` |
 | `crosspred(cb, coef=b, vcov=V, model.link="log")` | `dl.crosspred(cb, coef=b, vcov=V, model_link="log")` |
 | `crossreduce(cb, model, type="var", value=33)` | `dl.crossreduce(cb, model, type="var", value=33, name="cb")` |
-| `pred$allRRfit["10"]` | `pred.allRRfit[pred._var_index(10)]` or `pred.overall().query("var == 10")` |
+| `pred$allRRfit["10"]` | `pred.overall().query("var == 10")` |
 | `pred$matRRfit`, `pred$matRRlow`, `pred$cumRRfit` | `pred.matRRfit`, `pred.matRRlow`, `pred.cumRRfit` |
 | `pred$matfit`, `pred$matse`, `pred$allfit`, `pred$allse` | same names |
 | `red$coefficients`, `vcov(red)` | `red.coef`, `red.vcov` |

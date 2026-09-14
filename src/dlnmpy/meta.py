@@ -298,6 +298,10 @@ def mixmeta(y, S, X=None, method: str = "reml", bscov: str = "unstr", init_psi=N
     method : {"reml", "ml", "fixed"}
     bscov : {"unstr", "diag", "id"}
         Structure of the between-study covariance.
+    init_psi : (k, k) array, optional
+        Starting value for the between-study covariance (default 0.001 I).
+    maxiter, tol
+        Iteration limit and tolerance of the (RE)ML optimiser.
     """
     method = method.lower()
     if method not in ("reml", "ml", "fixed"):
@@ -306,6 +310,12 @@ def mixmeta(y, S, X=None, method: str = "reml", bscov: str = "unstr", init_psi=N
         raise ValueError("'bscov' must be 'unstr', 'diag' or 'id'")
     mod = _Model(y, S, X, bscov)
     k, p = mod.k, mod.p
+    if not np.isfinite(mod.y).all() or not all(np.isfinite(Si).all() for Si in mod.Slist) \
+            or not np.isfinite(mod.X).all():
+        # R's mixmeta drops missing outcomes within a study (na.action);
+        # that partial-outcome design is not supported here, so say so
+        raise ValueError("'y', 'S' and 'X' must not contain missing or infinite values; "
+                         "drop the affected studies before calling mixmeta()")
 
     if method == "fixed":
         Psi = np.zeros((k, k))
@@ -322,7 +332,12 @@ def mixmeta(y, S, X=None, method: str = "reml", bscov: str = "unstr", init_psi=N
             return 1e100 if not np.isfinite(v) else -v
 
         best = None
-        for start in (par0, mod.psi2par(np.eye(k) * 0.1), mod.psi2par(_moment_psi(mod))):
+        starts = [par0, mod.psi2par(np.eye(k) * 0.1)]
+        try:
+            starts.append(mod.psi2par(_moment_psi(mod)))
+        except (np.linalg.LinAlgError, ValueError):
+            pass
+        for start in starts:
             try:
                 opt = optimize.minimize(nll, start, method="BFGS", options={"gtol": 1e-8, "maxiter": maxiter})
                 opt = optimize.minimize(nll, opt.x, method="Nelder-Mead",
@@ -337,7 +352,10 @@ def mixmeta(y, S, X=None, method: str = "reml", bscov: str = "unstr", init_psi=N
         Psi = mod.par2psi(best.x)
         coef, Ulist, iUXl, iUX, iUy = mod.gls(Psi)
         ll = -float(best.fun)
-        converged = bool(np.isfinite(ll))
+        # the polishing BFGS often stops with "precision loss" on a flat
+        # surface with the gradient already at 1e-5; that is converged.
+        grad = float(np.max(np.abs(getattr(best, "jac", np.array([np.inf])))))
+        converged = np.isfinite(ll) and (bool(best.success) or grad < 1e-3)
         niter = int(best.nit)
 
     R = np.linalg.qr(iUX, mode="r")

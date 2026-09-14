@@ -74,6 +74,17 @@ def _time_index(values) -> np.ndarray:
     return np.asarray(values, dtype=float)
 
 
+def _season_spline(t: np.ndarray, df_per_year: float, time: str):
+    df_time = max(int(round(df_per_year * _years(t))), 1)
+    if df_time >= len(t):
+        raise ValueError(
+            f"the seasonal spline on {time!r} would need {df_time} degrees of "
+            f"freedom for {len(t)} observations. {time!r} is expected to be a "
+            "day index (or a date column); check its units and df_per_year."
+        )
+    return onebasis(t, "ns", df=df_time)
+
+
 def _years(t: np.ndarray) -> float:
     return (np.nanmax(t) - np.nanmin(t) + 1) / 365.25
 
@@ -103,6 +114,7 @@ class DLNM:
     outcome: str = "y"
     family: str = "quasipoisson"
     data: pd.DataFrame | None = field(default=None, repr=False)
+    group: np.ndarray | None = field(default=None, repr=False)
     _mmt: MMTResult | None = field(default=None, repr=False)
 
     # --- basics ---------------------------------------------------------------
@@ -132,12 +144,20 @@ class DLNM:
     def mmt(self, percentiles=(1, 99), ci_level: float = 0.95, nsim: int = 5000, seed=None,
             by: float = 0.1) -> MMTResult:
         """Minimum mortality (minimum risk) exposure, searched between the
-        given percentiles, with a simulation interval. Cached: later calls
-        with default arguments return the same object, and it is the default
-        reference for :meth:`predict`, :meth:`rr_at` and :meth:`attributable`."""
+        given percentiles, with a simulation interval.
+
+        The result of the most recent call is kept and its point estimate is
+        the default reference for :meth:`predict`, :meth:`rr_at`,
+        :meth:`attributable` and :meth:`figure`. The point estimate does not
+        depend on ``seed`` or ``nsim``; only the interval does. Repeated
+        calls with the same arguments return the same object."""
+        key = (tuple(percentiles), ci_level, nsim, seed, by)
+        if self._mmt is not None and getattr(self, "_mmt_key", None) == key:
+            return self._mmt
         res = _mmt(self.cb, self.model, x=self.x, percentiles=percentiles, ci_level=ci_level,
                    nsim=nsim, seed=seed, by=by, name=self.name)
         self._mmt = res
+        self._mmt_key = key
         return res
 
     def _cen(self, cen):
@@ -170,16 +190,22 @@ class DLNM:
                            name=self.name, **kwargs)
 
     def rr_at(self, percentiles=(1, 2.5, 10, 90, 97.5, 99), cen=None, ci_level: float = 0.95) -> pd.DataFrame:
-        """Overall cumulative relative risk at exposure percentiles, relative
-        to ``cen`` (default the MMT): the numbers a results table reports."""
+        """Overall cumulative association at exposure percentiles, relative
+        to ``cen`` (default the MMT): the numbers a results table reports.
+
+        For a log or logit link the effect column is ``rr`` (exponentiated).
+        For any other link (a Gaussian model, say) it is ``effect``, on the
+        scale of the linear predictor, since a ratio has no meaning there."""
         pct = np.atleast_1d(np.asarray(percentiles, dtype=float))
         at = self.quantile(pct)
         p = self.predict(at=at, cen=cen, ci_level=ci_level)
+        col = "rr" if p.is_exp else "effect"
+        f = np.exp if p.is_exp else (lambda a: a)
         rows = []
         for q, v in zip(pct, at):
             i = p._var_index(v)
-            rows.append({"percentile": q, self.exposure: v, "rr": p.allRRfit[i],
-                         "low": p.allRRlow[i], "high": p.allRRhigh[i]})
+            rows.append({"percentile": q, self.exposure: v, col: f(p.allfit[i]),
+                         "low": f(p.alllow[i]), "high": f(p.allhigh[i])})
         return pd.DataFrame(rows)
 
     def attributable(self, cen=None, dir: str = "back", extreme_percentiles=(2.5, 97.5),
@@ -189,7 +215,7 @@ class DLNM:
         ``cen`` (default the MMT) as the counterfactual."""
         return attr_table(self.x, self.cb, self.y, self.model, cen=self._cen(cen), dir=dir,
                           extreme_percentiles=extreme_percentiles, ci_level=ci_level, nsim=nsim,
-                          seed=seed, name=self.name)
+                          seed=seed, name=self.name, group=self.group)
 
     def qaic(self) -> float:
         from .uncertainty import qaic
@@ -202,8 +228,8 @@ class DLNM:
         percentile axis and the exposure distribution (see
         :func:`dlnmpy.plot.plot_overall_risk`)."""
         from .plot import plot_overall_risk
+        pred = self.predict(cen=cen, by=by)  # computes the MMT on first use
         m = self._mmt if cen is None else None
-        pred = self.predict(cen=cen, by=by)
         return plot_overall_risk(pred, x=self.x, mmt=m if m is not None else pred.cen, percentiles=percentiles,
                                  hist=hist, xlab=xlab or self.exposure, ylab=ylab, title=title, ax=ax, **kwargs)
 
@@ -220,12 +246,14 @@ class DLNM:
     def summary(self, nsim: int = 2000, seed=0) -> str:
         m = self._mmt or self.mmt(nsim=nsim, seed=seed)
         rr = self.rr_at([1, 99])
+        lab = "RR" if "rr" in rr.columns else "effect"
+        est = rr["rr"] if "rr" in rr.columns else rr["effect"]
         lines = [f"DLNM: {self.outcome} ~ {self.exposure}, lag {self.lag[0]}-{self.lag[1]}, {self.family}",
                  f"observations: {self.x.size} (fitted: {self._nobs()})   cross-basis df: {self.cb.df[0]} x {self.cb.df[1]}",
                  f"minimum-risk {self.exposure}: {m.mmt:.1f} ({int(100 * m.ci_level)}% CI {m.low:.1f} to {m.high:.1f}), "
                  f"percentile {m.percentile:.1f}",
-                 f"RR at 1st percentile ({rr.iloc[0, 1]:.1f}): {rr.rr[0]:.3f} ({rr.low[0]:.3f}, {rr.high[0]:.3f})",
-                 f"RR at 99th percentile ({rr.iloc[1, 1]:.1f}): {rr.rr[1]:.3f} ({rr.low[1]:.3f}, {rr.high[1]:.3f})"]
+                 f"{lab} at 1st percentile ({rr.iloc[0, 1]:.1f}): {est[0]:.3f} ({rr.low[0]:.3f}, {rr.high[0]:.3f})",
+                 f"{lab} at 99th percentile ({rr.iloc[1, 1]:.1f}): {est[1]:.3f} ({rr.low[1]:.3f}, {rr.high[1]:.3f})"]
         try:
             lines.append(f"QAIC: {self.qaic():.1f}")
         except Exception:
@@ -273,7 +301,14 @@ def dlnm(data: pd.DataFrame, outcome: str, exposure: str, lag, argvar=None, argl
     offset : str, optional
         Column with a log-offset (e.g. log population).
     group : str, optional
-        Column identifying separate series (lags are not computed across groups).
+        Column identifying separate series stacked in ``data`` (several
+        locations, say). Lags are not computed across groups, the formula
+        gets a group intercept (``C(group)``), and the seasonal spline on
+        ``time`` is fitted separately within each group. This is a pooled
+        model with one common exposure-lag-response surface; when the
+        association may differ by location the usual design is one
+        ``dlnm()`` per location followed by :func:`dlnmpy.crossreduce` and
+        :func:`dlnmpy.meta.mixmeta` (``examples/two_stage.py``).
     penalised : bool, optional
         Fit by penalised likelihood with REML/ML smoothing
         (:func:`dlnmpy.fit_pgam`). Defaults to True when either basis is
@@ -298,16 +333,22 @@ def dlnm(data: pd.DataFrame, outcome: str, exposure: str, lag, argvar=None, argl
 
     terms = [(name, cb)]
     rhs = []
+    glab = None if group is None else np.asarray(data[group])
     if time is not None:
         t = _time_index(data[time])
-        df_time = max(int(round(df_per_year * _years(t))), 1)
-        if df_time >= len(t):
-            raise ValueError(
-                f"the seasonal spline on {time!r} would need {df_time} degrees of "
-                f"freedom for {len(t)} observations. {time!r} is expected to be a "
-                "day index (or a date column); check its units and df_per_year."
-            )
-        terms.append((f"ns_{time}", onebasis(t, "ns", df=df_time)))
+        if glab is None:
+            terms.append((f"ns_{time}", _season_spline(t, df_per_year, time)))
+        else:
+            # one seasonal spline per group: block-diagonal design so that
+            # each series gets its own trend and seasonality
+            for k, g in enumerate(pd.unique(glab)):
+                m = glab == g
+                sub = _season_spline(t[m], df_per_year, time).to_dataframe(f"ns_{time}_g{k}")
+                block = pd.DataFrame(0.0, index=data.index, columns=sub.columns)
+                block.loc[m, :] = sub.to_numpy()
+                terms.append(block)
+    if glab is not None:
+        rhs.append(f"C({group})")
     if dow is not None:
         rhs.append(f"C({dow})")
     rhs.extend(controls)
@@ -327,4 +368,4 @@ def dlnm(data: pd.DataFrame, outcome: str, exposure: str, lag, argvar=None, argl
     else:
         model = fit_glm(formula, frame, family=family, **fit_kwargs)
     return DLNM(cb=cb, model=model, x=x, y=y, formula=formula, name=name, exposure=exposure,
-                outcome=outcome, family=family, data=data)
+                outcome=outcome, family=family, data=data, group=glab)

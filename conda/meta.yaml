@@ -1,7 +1,7 @@
-# Recipe for conda-forge (submit to conda-forge/staged-recipes once the
-# package is on PyPI; replace the sha256 with the one of the sdist).
+# Recipe for conda-forge (submit to conda-forge/staged-recipes; replace the
+# sha256 with the one of the sdist on PyPI).
 {% set name = "dlnmpy" %}
-{% set version = "0.3.2" %}
+{% set version = "0.7.0" %}
 
 package:
   name: {{ name|lower }}

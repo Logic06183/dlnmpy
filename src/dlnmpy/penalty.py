@@ -26,7 +26,10 @@ def findrank(X: np.ndarray) -> int:
 
 
 def _rescale(X: np.ndarray) -> np.ndarray:
-    return X / np.linalg.eigvalsh(X).max()
+    lam = np.linalg.eigvalsh(X).max()
+    if not np.isfinite(lam) or lam <= 0:
+        raise ValueError("penalty matrix has no positive eigenvalue; nothing to penalise")
+    return X / lam
 
 
 def cbpen(cb, sp=-1, add_slag=None) -> dict:
