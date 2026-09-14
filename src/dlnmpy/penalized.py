@@ -334,7 +334,11 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
         res = optimize.minimize(obj, x0, method="BFGS", options={"gtol": 1e-6, "maxiter": maxiter, "eps": 1e-5})
         res = optimize.minimize(obj, res.x, method="Nelder-Mead",
                                 options={"xatol": 1e-5, "fatol": 1e-9, "maxiter": 2000, "initial_simplex": None})
-        converged = bool(res.success) and np.isfinite(res.fun)
+        # Nelder-Mead often exhausts maxiter polishing a flat optimum, so also
+        # accept a central-difference gradient that is negligible relative to the score
+        h = 1e-4
+        grad = np.array([(obj(res.x + h * e) - obj(res.x - h * e)) / (2 * h) for e in np.eye(res.x.size)])
+        converged = bool(np.isfinite(res.fun) and (res.success or np.max(np.abs(grad)) < 1e-6 * (1 + abs(res.fun))))
         if fam.scale_known:
             rho = res.x
             crit, out = fit_at(rho)
