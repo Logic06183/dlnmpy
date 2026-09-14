@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Plotting now needs matplotlib >= 3.6: `summary_figure` crashed on 3.5 (`pcolormesh` rejects non-finite coordinates there).
+- Two tests no longer depend on library versions (`links.Probit` is lowercase before statsmodels 0.14; `axvspan` returns a `Polygon` before matplotlib 3.9).
+- Test suite run locally, 138 passed, on Python 3.9 with the minimum versions (numpy 1.22.0, scipy 1.8.0, pandas 1.4.0, statsmodels 0.13.1, matplotlib 3.6.0), on Python 3.11 (numpy 1.26, pandas 2.3) and on Python 3.13 with the latest releases.
+
 ## 0.7.0 (2026-09-14)
 
 A third audit. Three independent line-by-line reviews of the Python source against the R source (`dlnm` 2.4.10, `mixmeta`, mgcv, Gasparrini's `attrdl.R` and `findmin.R`), every suspected defect confirmed by running it, then the changed paths compared numerically against R 4.3.3 with `dlnm` 2.4.7: `fit_glm` with an offset and an aliased column (coefficients to 1e-13, dispersion to 5e-10, intervals to 1e-11), `fit_clogit` with missing rows against `survival::clogit` (1e-13), `attrdl(group=)` against `attrdl.R` run per group (daily contributions to 1e-13), and the `dlnm()` one-call workflow, single and grouped, against the equivalent `glm` (all coefficients to 4e-13, attributable fractions to 1e-15). The numerical core again needed no change; everything below is in the Python layers.
