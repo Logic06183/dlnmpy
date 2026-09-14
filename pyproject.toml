@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dlnmpy"
-version = "0.6.1"
+version = "0.7.0"
 description = "Distributed lag non-linear models (DLNM) in Python, a faithful port of the R package dlnm"
 readme = "README.md"
 license = {text = "GPL-2.0-or-later"}
@@ -16,6 +16,11 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering",
 ]
 dependencies = ["numpy>=1.22", "scipy>=1.8", "pandas>=1.4"]

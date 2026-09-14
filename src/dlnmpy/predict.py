@@ -18,6 +18,7 @@ exposure-response, or predictor-specific lag-response).
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -28,9 +29,15 @@ from .core import CrossBasis, OneBasis
 from .lag import mklag, seqlag
 from .model import extract_coef_vcov, get_link
 
-__all__ = ["CrossPred", "CrossReduce", "crosspred", "crossreduce", "mkat", "mkcen"]
+__all__ = ["CrossPred", "CrossReduce", "crosspred", "crossreduce", "mkat", "mkcen", "CenteringWarning"]
 
 _NO_CEN_FUNS = ("thr", "strata", "integer", "lin")
+
+
+class CenteringWarning(UserWarning):
+    """Raised when a prediction is centred on an automatic value because no
+    ``cen`` was given (R's ``"centering value unspecified"`` message).
+    Silence with ``warnings.simplefilter("ignore", CenteringWarning)``."""
 
 
 # ----------------------------------------------------------------------------
@@ -76,6 +83,10 @@ def mkcen(cen, basis, rng):
     fname = fun if isinstance(fun, str) else getattr(fun, "__name__", "")
     if cen is None:
         cen = stored
+    # R messages whenever `cen` was not passed to crosspred, even when the
+    # basis carries one; a value stored in argvar was chosen by the user, so
+    # only a value that came from nowhere is reported here
+    nocen = cen is None
     # np.bool_ is not a subclass of bool, so a numpy boolean would fall through
     # both branches and be coerced by float(cen) into 1.0 or 0.0
     isbool = isinstance(cen, (bool, np.bool_))
@@ -89,6 +100,11 @@ def mkcen(cen, basis, rng):
             cen = None
     if isinstance(intercept, (bool, np.bool_)) and intercept:
         cen = None
+    if nocen and cen is not None:
+        # R prints this as a message; it is the single most common source of
+        # a "wrong" relative risk (the reference is mid-range, not the MMT)
+        warnings.warn(f"centering value unspecified. Automatically set to {cen:g}",
+                      CenteringWarning, stacklevel=3)
     return None if cen is None else float(cen)
 
 
@@ -481,6 +497,8 @@ def crossreduce(basis: CrossBasis, model=None, type: str = "overall", value=None
     if type != "overall":
         if value is None:
             raise ValueError("'value' must be provided for type 'var' or 'lag'")
+        if np.size(value) != 1:
+            raise ValueError("'value' must be a numeric scalar")
         value = float(np.asarray(value).ravel()[0])
         if type == "lag" and not (basis.lag[0] <= value <= basis.lag[1]):
             raise ValueError("'value' of lag-specific effects must be within the lag range")

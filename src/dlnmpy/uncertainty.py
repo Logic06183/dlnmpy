@@ -71,8 +71,12 @@ def bootstrap_ci(pred: CrossPred, nsim: int = 1000, seed=None, level: float = 0.
     curve is used on a scale where they are not exact."""
     if basis is None:
         raise ValueError("pass the basis the prediction was made from")
+    # an uncentred prediction records cen=None; passing None back to
+    # crosspred would centre the draws automatically while the point
+    # estimate stays uncentred, and the fit would fall outside its interval
+    cen = False if pred.cen is None else pred.cen
     sim = simulate_pred(basis, pred.coef, pred.vcov, nsim=nsim, seed=seed, model_link=pred.model_link,
-                        at=pred.predvar if pred.at_matrix is None else pred.at_matrix, cen=pred.cen,
+                        at=pred.predvar if pred.at_matrix is None else pred.at_matrix, cen=cen,
                         lag=pred.lag, bylag=pred.bylag, **kwargs)
     f = np.exp if pred.is_exp else (lambda a: a)
     low, high = empirical_ci(f(sim["allfit"]), level)
@@ -80,6 +84,20 @@ def bootstrap_ci(pred: CrossPred, nsim: int = 1000, seed=None, level: float = 0.
 
 
 # ----------------------------------------------------------------------------
+def _check_poisson(results) -> None:
+    """QAIC as implemented here is the Poisson quasi-likelihood criterion.
+    Refuse anything else rather than return a plausible-looking number."""
+    fam = getattr(results, "family", None)  # PenalizedGLMResults
+    if fam is None:
+        fam = getattr(getattr(results, "model", None), "family", None)
+    if fam is None:
+        return  # cannot tell (a duck-typed results object); trust the caller
+    fname = fam if isinstance(fam, str) else type(fam).__name__
+    if fname.lower() not in ("poisson", "quasipoisson"):
+        raise ValueError(
+            f"qaic() is defined for (quasi-)Poisson fits; this model's family is {fname}")
+
+
 def qaic(results) -> float:
     """Quasi-AIC for an over-dispersed Poisson GLM fitted with statsmodels:
     ``-2 * loglik(Poisson) + 2 * phi * k`` with ``phi`` the estimated
@@ -96,6 +114,7 @@ def qaic(results) -> float:
     for a quasipoisson glm and the reference implementations compute
     ``sum(dpois(y, fitted, log = TRUE))`` by hand.
     """
+    _check_poisson(results)
     phi = float(getattr(results, "scale", 1.0))
     edf = getattr(results, "edf", None)
     # for a penalised fit the parameter count is the total effective degrees

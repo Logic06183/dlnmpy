@@ -142,3 +142,22 @@ Scattered missing values in the exposure and the outcome propagate exactly as
 in R: the NaN pattern of the cross-basis is identical, the same rows are
 dropped from the fit (3,208 of 5,114 in a test with 200 missing exposures and
 100 missing outcomes), and the coefficients agree to 6.9e-15.
+
+## The workflow layer against R (0.7.0)
+
+The layers above `dlnm`'s own functions (`dlnm()`, `fit_glm`, `fit_clogit`, `attrdl(group=)`) were compared against hand-written R on 14 September 2026 (R 4.3.3, `dlnm` 2.4.7, `survival`, `mixmeta` 1.2.2). Scripts are not in the repository because they are one-off; the numbers are:
+
+| Comparison | Max abs | Max rel |
+|---|---|---|
+| `fit_glm(exposure=pop)` with an aliased column vs `glm(offset=log(pop))`: 39 coefficients | 1.1e-13 | 6.3e-13 |
+| same, standard errors and dispersion | 9.0e-12, 5.0e-10 | 1.3e-10, 3.4e-10 |
+| same, `crosspred` RR and interval bounds on a 51-point grid | 2.1e-14, 1.1e-11 | 1.7e-14, 1.0e-11 |
+| `fit_clogit` with NaN rows vs `clogit(na.action)`: coefficient, SE, log-likelihood | 1.0e-13, 2.1e-14, 2.8e-14 | 2.3e-13 |
+| `attrdl(group=)` vs `attrdl.R` per group, 3 series: daily AN back and forward, daily AF | 2.7e-14 | 2.8e-13 |
+| `dlnm(lag=21, time, dow)` vs `glm(death ~ cb + ns(time) + dow)`: 84 coefficients | 3.9e-13 | 4.8e-10 |
+| same, `rr_at([1, 99])` RR and bounds, attributable fraction total/cold/heat | 5.1e-12, 1.1e-15 | 4.5e-12 |
+| `dlnm(group=)` on two stacked series vs `glm` with `crossbasis(group=)`, group intercept and block-diagonal `ns(time)`: 86 coefficients | 9.4e-14 | 9.3e-13 |
+
+One quirk of R worth knowing: `glm.control(epsilon = 1e-14)` also tightens the aliasing tolerance to `epsilon / 1000`, so an exact duplicate column is no longer detected and the fit does not converge. With `epsilon = 1e-10` R flags the alias and the two implementations agree as above.
+
+One definitional point: the grouped total attributable number is one pooled fraction, `sum(an) / sum(cases)` over rows with a complete lag history, applied to all cases. It is not the sum of per-group totals, which weight each group by its own ratio of all cases to cases with a complete history; the two differ by a fraction of a percent when the first `lag` days of a series are unusual. Per-group totals are obtained by calling `attrdl` per group.

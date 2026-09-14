@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+from pandas import isna as pd_isna
 
 from .basis import PRED_ARGS, get_basis_function
 from .lag import lag_matrix, mklag, seqlag
@@ -300,6 +301,12 @@ def crossbasis(x, lag=None, argvar=None, arglag=None, group=None) -> CrossBasis:
         group = np.asarray(group)
         if x.shape[1] > 1:
             raise ValueError("'group' allowed only for time series data")
+        if group.shape[0] != x.shape[0]:
+            raise ValueError("'group' must have the same length as 'x'")
+        if pd_isna(group).any():
+            # a missing label matches no group, so its rows would never be
+            # filled and would silently be all-NaN
+            raise ValueError("'group' must not contain missing values")
         _, counts = np.unique(group, return_counts=True)
         if counts.min() <= lag[1] - lag[0]:
             raise ValueError("each group must have length > diff(lag)")

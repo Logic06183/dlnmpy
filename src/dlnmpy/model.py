@@ -173,6 +173,12 @@ def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool
     arguments of the model rather than of the fit, and are passed on as such;
     ``offset`` is R's ``offset()`` term. They are named explicitly because
     ``GLM.fit()`` accepts arbitrary keywords and would silently discard them.
+
+    For the quasi families the dispersion is R's: the Pearson chi-square
+    divided by ``n - p`` with ``n`` the number of fitted rows and ``p`` the
+    number of non-aliased coefficients. This also holds with
+    ``freq_weights``, where statsmodels itself would divide by
+    ``sum(weights) - p``; R's ``glm(weights=)`` counts rows, not weight.
     """
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
@@ -202,10 +208,15 @@ def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool
             exog = pd.DataFrame(model.exog[:, keep], columns=[model.exog_names[i] for i in keep])
             endog = pd.Series(model.endog, name=model.endog_names)
             dropped = [model.exog_names[i] for i in bad]
-            # these have already been subset by missing="drop" above
-            model = sm.GLM(endog, exog, family=family_obj,
-                           offset=getattr(model, "offset", None),
-                           exposure=getattr(model, "exposure", None),
+            # these have already been subset by missing="drop" above.
+            # statsmodels stores ``exposure`` already logged, so it must be
+            # carried over as an offset: passing it back as ``exposure`` would
+            # log it a second time and shift every coefficient.
+            off = getattr(model, "offset", None)
+            expo = getattr(model, "exposure", None)
+            if expo is not None:
+                off = np.asarray(expo, dtype=float) if off is None else np.asarray(off, dtype=float) + expo
+            model = sm.GLM(endog, exog, family=family_obj, offset=off,
                            freq_weights=getattr(model, "freq_weights", None),
                            var_weights=getattr(model, "var_weights", None))
             model.aliased = dropped  # names of the columns R would report as NA
@@ -236,6 +247,11 @@ def fit_clogit(y, X, groups, **kwargs):
     tight tolerance. The default BFGS optimiser can stop early on flat
     likelihoods and give coefficients that differ from R's at the second
     decimal, so it is not used.
+
+    Rows with a missing value in ``y``, any column of ``X`` or ``groups`` are
+    dropped before fitting, as ``clogit`` does through ``na.action``. A
+    cross-basis built from a time series always has such rows (the first
+    ``lag`` of each series). The number dropped is stored as ``res.n_dropped``.
     """
     from statsmodels.discrete.conditional_models import ConditionalLogit
 
@@ -243,7 +259,21 @@ def fit_clogit(y, X, groups, **kwargs):
     kwargs.setdefault("tol", 1e-12)
     kwargs.setdefault("maxiter", 500)
     kwargs.setdefault("disp", 0)
-    res = ConditionalLogit(np.asarray(y), X, groups=np.asarray(groups)).fit(**kwargs)
+    y_arr = np.asarray(y, dtype=float)
+    g_arr = np.asarray(groups)
+    X_arr = np.asarray(X, dtype=float)
+    if X_arr.ndim == 1:
+        X_arr = X_arr[:, None]
+    if not (len(y_arr) == len(X_arr) == len(g_arr)):
+        raise ValueError("'y', 'X' and 'groups' must have the same length")
+    g_missing = np.array([g is None or (isinstance(g, float) and np.isnan(g)) for g in g_arr])
+    ok = np.isfinite(y_arr) & np.isfinite(X_arr).all(axis=1) & ~g_missing
+    n_dropped = int((~ok).sum())
+    if n_dropped:
+        y_arr, g_arr = y_arr[ok], g_arr[ok]
+        X = X.iloc[ok] if hasattr(X, "iloc") else X_arr[ok]
+    res = ConditionalLogit(y_arr, X, groups=g_arr).fit(**kwargs)
+    res.n_dropped = n_dropped
     # statsmodels approximates the Hessian numerically (about 1e-4 relative
     # error in the covariance). Replace it with Richardson-extrapolated central
     # differences of the analytic score, which agrees with R's information

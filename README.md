@@ -1,7 +1,8 @@
 # dlnmpy
 
 [![tests](https://github.com/Logic06183/dlnmpy/actions/workflows/ci.yml/badge.svg)](https://github.com/Logic06183/dlnmpy/actions/workflows/ci.yml)
-![python](https://img.shields.io/badge/python-3.9%20%7C%203.11%20%7C%203.12-blue)
+[![PyPI](https://img.shields.io/pypi/v/dlnmpy.svg)](https://pypi.org/project/dlnmpy/)
+![python](https://img.shields.io/badge/python-3.9%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
 ![licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-green)
 
 Distributed lag non-linear models (DLNMs) in Python. A port of the R package [`dlnm`](https://github.com/gasparrini/dlnm) by Antonio Gasparrini and Ben Armstrong, checked number for number against R, plus the parts of a temperature-mortality analysis that R leaves to loose scripts: the minimum mortality temperature, attributable fractions, two-stage meta-analysis and the figures.
@@ -19,6 +20,7 @@ Yes, to the precision below. Every number here comes from the test-suite or from
 | `glm()` coefficients through statsmodels (`fit_glm`) | 1e-14 | `tests/test_model.py` |
 | Five complete analyses end to end, 102 quantities (GLM, OLS, logistic, conditional logistic) | better than 1e-8, most 1e-12 | `tools/side_by_side.py` |
 | 64 edge cases (negative lags, sub-periods, exposure histories, `bylag`, `group`, explicit knots, `attrdl` variants) | 1e-6 or better, most 1e-12 | audit for 0.6.0, see `CHANGELOG.md` |
+| `dlnm()` one-call workflow (single and grouped series), `fit_glm` with an offset and aliased columns, `fit_clogit` with missing rows, `attrdl(group=)` | coefficients 1e-13, intervals 1e-11, AF 1e-15 | audit for 0.7.0, see `CHANGELOG.md` |
 | `attrdl.R`, `findmin.R` (attributable risk, MMT) | 1e-8 | `tests/test_attribution.py` |
 | `mixmeta` (REML, BLUPs, predictions, Q, I²) | 1e-5 or better | `tests/test_meta.py` |
 | `mgcv::gam` penalised DLNMs (scores, smoothing parameters, coefficients) | 1e-5, 1e-4, 1e-4 | `tests/test_penalized.py` |
@@ -52,9 +54,9 @@ With conda, create the environment from the file in the repo (conda-forge packag
 conda env create -f environment.yml && conda activate dlnmpy
 ```
 
-or add the pip line to an existing environment. A conda-forge recipe is in `conda/`; it can be submitted once the package is on PyPI.
+or add the pip line to an existing environment. A conda-forge recipe is in `conda/`, ready to submit to `conda-forge/staged-recipes`.
 
-Requires Python 3.9+, numpy, scipy and pandas. `statsmodels` is needed to fit models through `fit_glm` and `matplotlib` for plotting; both are optional. The example datasets (`chicagoNMMAPS`, `drug`, `nested`) ship inside the package, so nothing from R is needed at any point; `dlnmpy.datasets.simulate_cities()` generates multi-location data for the two-stage examples.
+Requires Python 3.9+, numpy, scipy and pandas. `statsmodels` is needed to fit models through `fit_glm` and `matplotlib` for plotting; both are optional. The example datasets (`chicagoNMMAPS`, `drug`, `nested`) ship inside the package, so nothing from R is needed at any point (the two published-paper reproductions in `examples/` download Gasparrini's public England and Wales data on first run); `dlnmpy.datasets.simulate_cities()` generates multi-location data for the two-stage examples.
 
 ## Quick start
 
@@ -219,7 +221,7 @@ The minimum-mortality percentile matches as an exact integer in all 10 regions; 
 `tools/make_fixtures.R` runs the R package on the vignette examples and writes every intermediate object to `tests/fixtures/` as CSV and JSON: 32 basis-function specifications (with and without values outside the fitting range), 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The Python test-suite compares against these numbers with absolute tolerances of 1e-10 to 1e-12.
 
 ```
-pytest            # 117 tests
+pytest            # 138 tests
 ```
 
 A second, independent check lives in `tools/side_by_side.R` / `tools/side_by_side.py`: five complete analyses are run end to end in both languages, including the model fit, on data and specifications not used for the unit-test fixtures (the `drug` trial with OLS on exposure histories, the `nested` case-control study with conditional logistic regression, a logistic and a quasi-Poisson Chicago model with threshold, polynomial, strata and integer bases, 80% and 90% intervals, exposure-history matrices passed to `at`, and a four-city simulation with known truth). All 102 quantities compared agree to better than 1e-8; most to 1e-12. The report is printed by `python tools/side_by_side.py` and the test-suite runs it too.
@@ -267,7 +269,7 @@ examples/            vignette reproduction
 
 ## Status
 
-Alpha. The numerical core has been stable since 0.4 and is pinned by the fixtures; the API of `dlnm()` and the plotting functions is new in 0.6.0 and may still change. Known gaps are in the roadmap below; the penalised fitter uses numerical derivatives and is slower than mgcv.
+Alpha, on PyPI. The numerical core has been stable since 0.4 and is pinned by the fixtures and by three audits against R (0.5.0, 0.6.0, 0.7.0); the API of `dlnm()` and the plotting functions is newer and may still change. Known gaps are in the roadmap above; the penalised fitter uses numerical derivatives and is slower than mgcv.
 
 ## Contributing
 
@@ -277,7 +279,7 @@ See `CONTRIBUTING.md`. The rule is numerical equivalence with R: changes to the 
 
 There is no paper for `dlnmpy`. Cite the methods papers below for the models, and the software as:
 
-> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.6.0). 2026. https://github.com/Logic06183/dlnmpy
+> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.7.0). 2026. https://github.com/Logic06183/dlnmpy
 
 A `CITATION.cff` is in the repository, so GitHub's "Cite this repository" button gives the same thing in BibTeX or APA. No DOI yet.
 

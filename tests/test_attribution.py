@@ -101,6 +101,7 @@ def test_attr_table(chicago, setup):
 
 
 def test_attrdl_from_model(chicago, setup):
+    pytest.importorskip("statsmodels")
     r, cb, kw = setup
     nst = dl.onebasis(chicago.time, "ns", df=98)
     X = chicago.join(cb.to_dataframe("cb")).join(nst.to_dataframe("nst"))

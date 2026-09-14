@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.7.0 (2026-09-14)
+
+A third audit. Three independent line-by-line reviews of the Python source against the R source (`dlnm` 2.4.10, `mixmeta`, mgcv, Gasparrini's `attrdl.R` and `findmin.R`), every suspected defect confirmed by running it, then the changed paths compared numerically against R 4.3.3 with `dlnm` 2.4.7: `fit_glm` with an offset and an aliased column (coefficients to 1e-13, dispersion to 5e-10, intervals to 1e-11), `fit_clogit` with missing rows against `survival::clogit` (1e-13), `attrdl(group=)` against `attrdl.R` run per group (daily contributions to 1e-13), and the `dlnm()` one-call workflow, single and grouped, against the equivalent `glm` (all coefficients to 4e-13, attributable fractions to 1e-15). The numerical core again needed no change; everything below is in the Python layers.
+
+**Fixed: silent wrong answers**
+
+- `fit_glm(..., exposure=)` on a design with an aliased column logged the exposure twice. The refit that drops the aliased column passed statsmodels' stored `exposure` (already `log(exposure)`) back as `exposure`, so every coefficient shifted (intercept 2.17 where R gives -9.98; RR 1.1515 where R gives 1.1493). `offset=` was unaffected. The exposure is now carried over as an offset.
+- `bootstrap_ci` on an uncentred prediction (`cen=False`) centred the simulated draws automatically while leaving the point estimate uncentred, so the fit fell outside its own interval. The draws now follow the prediction.
+- `DLNM.rr_at()` and `DLNM.summary()` exponentiated the effect for any link, so a Gaussian model reported a "relative risk" of 8e9 for an additive effect of 26 deaths. The column is now `rr` for log and logit links and `effect`, on the linear-predictor scale, otherwise.
+- `attrdl` and `attr_table` on a cross-basis built with `group=` formed the lagged exposures across group boundaries, so the last days of one series contributed to the first days of the next. Both take a `group` argument; `DLNM.attributable()` passes it. Without it on a grouped basis a warning is raised. The reference `attrdl.R` has no such argument; the grouped total is one pooled fraction, documented.
+- `attr_table` with a reference below the 2.5th (or above the 97.5th) percentile produced a "moderate cold" range that ran backwards (silently 0) and an "extreme cold" range that contained the heat side. The cut-offs are now clamped to `cen`.
+- `qaic()` returned a Poisson-likelihood number for a Gaussian or quasi-binomial fit. It now refuses anything but a (quasi-)Poisson family.
+- `crossreduce(type="lag"|"var", value=[...])` took the first element of a vector; R stops. It now raises.
+- `cr(knots=)` with fewer than three knots returned a one-column basis with a zero penalty, and `cbpen` then divided by a zero eigenvalue (all-NaN penalty, no error). mgcv refuses; so does this. `_rescale` refuses a penalty with no positive eigenvalue.
+- `poly(degree=0)` returned a basis with no columns.
+- `crossbasis(group=)` with a missing group label left those rows all-NaN and reported the wrong group count; refused now, as is a `group` of the wrong length.
+
+**Fixed: crashes and misleading state**
+
+- `fit_clogit` failed with statsmodels' `MissingDataError` on the NaN rows every time-series cross-basis has; rows with a missing outcome, design value or stratum are dropped (as `clogit`'s `na.action` does) and counted in `res.n_dropped`.
+- `mixmeta` with a missing outcome died inside the moment estimator with `LinAlgError`; it now says what is missing.
+- `fit_pglm(sp=1.0)` with a single penalty failed on a 0-d array; scalars are accepted and the length is checked against the number of penalties.
+- `converged` was never `False` on `MixMeta` or `PenalizedGLMResults` (it tested whether the objective was finite); it now reports the optimiser's own status.
+- `DLNM.figure()` on a fresh fit drew the curve without the MMT interval band, because it read the cached MMT before `predict()` had computed it.
+- `DLNM.mmt()` claimed to cache and did not; repeated calls with the same arguments now return the same object, and a call with other arguments replaces the default reference.
+
+**Changed**
+
+- `crosspred`/`crossreduce` warn (`CenteringWarning`) when the centring value is chosen automatically, the counterpart of R's `"centering value unspecified"` message. A value stored in `argvar` is the user's own and does not warn. Silence with `warnings.simplefilter("ignore", dlnmpy.predict.CenteringWarning)`.
+- `dlnm(..., group=)` now fits a group intercept and a separate seasonal spline per group (block-diagonal `ns(time)`), which is the pooled model an analyst would write by hand; the previous formula fitted one intercept and one spline across the stacked series. The docstring says when to prefer the two-stage design instead.
+- `fit_glm`'s quasi-likelihood dispersion with `freq_weights` follows R (`n - p` with `n` the number of rows), not statsmodels (`sum(weights) - p`); this was already the behaviour and is now documented.
+- CI: Python 3.13 added, a minimal-install job (numpy, scipy, pandas only), and a build job that runs `python -m build` and `twine check` on every push. A `release.yml` publishes to PyPI by trusted publishing when a `v*` tag is pushed and the tag matches `pyproject.toml`.
+- Two tests that needed statsmodels without saying so now skip when it is absent.
+- README: PyPI badge and status, test count, network note for the two paper reproductions; `CITATION.cff` and the conda recipe at 0.7.0; `docs/r-to-python.md` no longer recommends a private method.
+
 ## 0.6.1 (2026-09-02)
 
 **Fixed**

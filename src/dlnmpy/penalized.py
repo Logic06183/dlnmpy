@@ -301,7 +301,9 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
         return crit, dict(beta=beta, W=W, dev=dev, mu=mu, eta=eta, S=S, A=A, phi=phi, pen=pen)
 
     if sp is not None:
-        rho = np.log(np.asarray(sp, dtype=float))
+        rho = np.log(np.atleast_1d(np.asarray(sp, dtype=float)))
+        if rho.size != nsp:
+            raise ValueError(f"'sp' must have one value per penalty ({nsp}), got {rho.size}")
         if fam.scale_known:
             crit, out = fit_at(rho)
         else:
@@ -332,7 +334,7 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
         res = optimize.minimize(obj, x0, method="BFGS", options={"gtol": 1e-6, "maxiter": maxiter, "eps": 1e-5})
         res = optimize.minimize(obj, res.x, method="Nelder-Mead",
                                 options={"xatol": 1e-5, "fatol": 1e-9, "maxiter": 2000, "initial_simplex": None})
-        converged = bool(res.success or np.isfinite(res.fun))
+        converged = bool(res.success) and np.isfinite(res.fun)
         if fam.scale_known:
             rho = res.x
             crit, out = fit_at(rho)
