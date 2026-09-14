@@ -22,7 +22,7 @@ A third audit. Three independent line-by-line reviews of the Python source again
 - `fit_clogit` failed with statsmodels' `MissingDataError` on the NaN rows every time-series cross-basis has; rows with a missing outcome, design value or stratum are dropped (as `clogit`'s `na.action` does) and counted in `res.n_dropped`.
 - `mixmeta` with a missing outcome died inside the moment estimator with `LinAlgError`; it now says what is missing.
 - `fit_pglm(sp=1.0)` with a single penalty failed on a 0-d array; scalars are accepted and the length is checked against the number of penalties.
-- `converged` was never `False` on `MixMeta` or `PenalizedGLMResults` (it tested whether the objective was finite); it now reports the optimiser's own status.
+- `converged` was never `False` on `MixMeta` or `PenalizedGLMResults` (it tested whether the objective was finite); it now reports the optimiser's own status. For penalised fits a negligible REML/ML gradient at the solution also counts, because Nelder-Mead can exhaust its iterations on a flat optimum (seen with scipy 1.18).
 - `DLNM.figure()` on a fresh fit drew the curve without the MMT interval band, because it read the cached MMT before `predict()` had computed it.
 - `DLNM.mmt()` claimed to cache and did not; repeated calls with the same arguments now return the same object, and a call with other arguments replaces the default reference.
 
