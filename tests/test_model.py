@@ -150,4 +150,5 @@ def test_get_link_compound_names():
     assert dl.get_link(Fake(sm.families.Binomial(link=L.LogLog()))) == "loglog"
     assert dl.get_link(Fake(sm.families.Poisson(link=L.Log()))) == "log"
     assert dl.get_link(Fake(sm.families.Binomial(link=L.Logit()))) == "logit"
-    assert dl.get_link(Fake(sm.families.Binomial(link=L.Probit()))) == "probit"
+    probit = getattr(L, "Probit", None) or L.probit  # statsmodels < 0.14 only has the lowercase name
+    assert dl.get_link(Fake(sm.families.Binomial(link=probit()))) == "probit"

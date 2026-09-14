@@ -236,6 +236,7 @@ def test_dlnm_mmt_is_cached_and_figure_has_the_interval_band(chicago):
     assert fit.mmt(nsim=200, seed=5) is not a
     fresh = dl.dlnm(d, "death", "temp", lag=10, time="time", dow="dow")
     ax = fresh.figure()          # first call used to draw without the MMT band
-    assert any(type(p).__name__ == "Rectangle" for p in ax.patches)
+    # axvspan returns a Polygon before matplotlib 3.9 and a Rectangle after
+    assert any(type(p).__name__ in ("Rectangle", "Polygon") for p in ax.patches)
     import matplotlib.pyplot as plt
     plt.close("all")
