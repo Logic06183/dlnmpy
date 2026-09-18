@@ -308,7 +308,8 @@ def dlnm(data: pd.DataFrame, outcome: str, exposure: str, lag, argvar=None, argl
         model with one common exposure-lag-response surface; when the
         association may differ by location the usual design is one
         ``dlnm()`` per location followed by :func:`dlnmpy.crossreduce` and
-        :func:`dlnmpy.meta.mixmeta` (``examples/two_stage.py``).
+        ``mixmetapy.mixmeta`` (``pip install dlnmpy[twostage]``;
+        ``examples/two_stage.py``).
     penalised : bool, optional
         Fit by penalised likelihood with REML/ML smoothing
         (:func:`dlnmpy.fit_pgam`). Defaults to True when either basis is

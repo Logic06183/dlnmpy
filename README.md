@@ -5,7 +5,7 @@
 ![python](https://img.shields.io/badge/python-3.9%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
 ![licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-green)
 
-Distributed lag non-linear models (DLNMs) in Python. A port of the R package [`dlnm`](https://github.com/gasparrini/dlnm) by Antonio Gasparrini and Ben Armstrong, checked number for number against R, plus the parts of a temperature-mortality analysis that R leaves to loose scripts: the minimum mortality temperature, attributable fractions, two-stage meta-analysis and the figures.
+Distributed lag non-linear models (DLNMs) in Python. A port of the R package [`dlnm`](https://github.com/gasparrini/dlnm) by Antonio Gasparrini and Ben Armstrong, checked number for number against R, plus the parts of a temperature-mortality analysis that R leaves to loose scripts: the minimum mortality temperature, attributable fractions, two-stage designs and the figures.
 
 Not affiliated with the authors of `dlnm`. The method is theirs; this repository makes it usable from Python.
 
@@ -22,7 +22,7 @@ Yes, to the precision below. Every number here comes from the test-suite or from
 | 64 edge cases (negative lags, sub-periods, exposure histories, `bylag`, `group`, explicit knots, `attrdl` variants) | 1e-6 or better, most 1e-12 | audit for 0.6.0, see `CHANGELOG.md` |
 | `dlnm()` one-call workflow (single and grouped series), `fit_glm` with an offset and aliased columns, `fit_clogit` with missing rows, `attrdl(group=)` | coefficients 1e-13, intervals 1e-11, AF 1e-15 | audit for 0.7.0, see `CHANGELOG.md` |
 | `attrdl.R`, `findmin.R` (attributable risk, MMT) | 1e-8 | `tests/test_attribution.py` |
-| `mixmeta` (REML, BLUPs, predictions, Q, I²) | 1e-5 or better | `tests/test_meta.py` |
+| `mixmeta` (REML, BLUPs, predictions, Q, I²), in the companion package [mixmetapy](https://github.com/Logic06183/mixmetapy) | 1e-5 or better | `tests/test_mixmeta.py` there; the two-stage pipeline in `tests/test_twostage.py` |
 | `mgcv::gam` penalised DLNMs (scores, smoothing parameters, coefficients) | 1e-5, 1e-4, 1e-4 | `tests/test_penalized.py` |
 | Gasparrini et al. 2015 *Lancet*, England and Wales, 10 regions | identical MMT percentiles; AF to 4e-5 points | `examples/lancet_2015.py` |
 | Gasparrini and Armstrong 2013 *BMC MRM* | 67 of 68 intermediates to 1e-5..1e-15 | `examples/bmcmrm_2013.py` |
@@ -33,6 +33,10 @@ If you find a number that differs from R, open an issue with the R code and the 
 
 Time-series studies of temperature, air pollution or any lagged exposure against daily counts (quasi-Poisson), case-crossover and matched case-control designs (conditional logistic), cohort studies with exposure histories (`exphist`), and multi-location studies pooled with multivariate meta-analysis. Anything you would reach for `dlnm` in R to do, and the surrounding workflow: MMT with an interval, attributable numbers by cold, heat, extreme and moderate, the standard figures.
 
+## Scope
+
+dlnmpy follows the R package boundaries, so that anyone coming from R finds things where they expect them. `dlnm` (bases, prediction, reduction, penalised fitting) is here, together with Gasparrini's `attrdl` and `findmin` scripts that travel with it. `mixmeta`, which is a separate package in R with its own methods paper, is the separate Python package [mixmetapy](https://github.com/Logic06183/mixmetapy); `pip install "dlnmpy[twostage]"` installs both. Until 0.7 they were one package; Antonio Gasparrini suggested the split in September 2026.
+
 ## Why
 
 DLNMs are the standard method for exposure-lag-response associations in environmental epidemiology, above all for temperature and mortality. The methodology lives in one R package. That is a problem for teams working in Python (Databricks, scikit-learn pipelines, deep learning workflows) and for anyone who wants to run the models in a compiled language at scale. This repository sets out to make the method itself portable: the algorithms are written down as a language-neutral specification (`docs/theory.md`), the numerical behaviour is pinned by fixtures generated from R, and the Python implementation is the first port.
@@ -41,6 +45,8 @@ DLNMs are the standard method for exposure-lag-response associations in environm
 
 ```bash
 pip install dlnmpy
+# with the multivariate meta-analysis for multi-location (two-stage) designs
+pip install "dlnmpy[twostage]"
 # or the development version
 pip install git+https://github.com/Logic06183/dlnmpy.git
 # or, for development
@@ -181,17 +187,21 @@ dl.attrdl(chicago.temp, cb, chicago.death, model, type="an", dir="forw", cen=res
 
 ## Two-stage designs: multivariate meta-analysis
 
-Multi-location studies pool location-specific reduced coefficients with a multivariate random-effects meta-analysis; in R that is the `mixmeta` package. `dlnmpy.meta` implements the same model (single random level: REML, ML or fixed effects; unstructured, diagonal or identity between-location covariance; meta-regression; BLUPs with prediction intervals; Cochran's Q and I²), validated against `mixmeta` on a 12-location simulation.
+Multi-location studies reduce each location's DLNM to one-dimensional coefficients, pool them with a multivariate random-effects meta-analysis, and predict the pooled and location-specific curves. In R the pooling is the `mixmeta` package; in Python it is [mixmetapy](https://github.com/Logic06183/mixmetapy), installed by the `twostage` extra. dlnmpy supplies the two ends: `stack_reduced` turns a list of reductions into the `y` and `S` arrays, and `predict_reduced` turns any coefficient vector and covariance matrix back into a curve.
 
 ```python
+from mixmetapy import mixmeta                                  # pip install "dlnmpy[twostage]"
+
 y, S = dl.stack_reduced([dl.crossreduce(cb_i, fit_i, cen=18, name="cb") for ...])
-mm = dl.mixmeta(y, S, method="reml")                       # pooled coefficients, Psi, Q, I2
-mr = dl.mixmeta(y, S, X=np.column_stack([np.ones(m), mean_temp]))   # meta-regression
+mm = mixmeta(y, S, method="reml")                              # pooled coefficients, Psi, Q, I2
+mr = mixmeta(y, S, X=np.column_stack([np.ones(m), mean_temp]))  # meta-regression
 pooled = dl.predict_reduced(cb_1, mm.coef_vec, mm.vcov, at=grid, cen=18)   # pooled curve (CrossPred)
-blups = mm.blup(se=True)                                    # location-specific BLUPs and covariances
+blups = mm.blup(se=True)                                       # location-specific BLUPs and covariances
 ```
 
-Where the two disagree it is because `mixmeta` stopped at its iteration limit: on the identity-structure fit R reports non-convergence and the Python optimum has a higher restricted log-likelihood by 0.76. For all converged fits coefficients, covariances, `Psi`, log-likelihood, AIC/BIC, Q, I², BLUPs and predictions agree to 1e-5 or better (1e-13 for fixed effects). See `examples/two_stage.py`.
+`predict_reduced` takes plain arrays, so pooling done some other way (statsmodels, your own code) goes through it the same. The whole pipeline, stage 1 in dlnmpy and stage 2 in mixmetapy, is checked against R in `tests/test_twostage.py`; the meta-analysis on its own is validated in the mixmetapy repository. See `examples/two_stage.py`.
+
+Moving from 0.7: `dl.mixmeta`, `dl.MixMeta` and `dlnmpy.meta` still work in 0.8 and 0.9 with a `DeprecationWarning` when mixmetapy is installed, and raise an `ImportError` saying what to install when it is not. They go in 1.0.
 
 ## Validation
 
@@ -221,7 +231,7 @@ The minimum-mortality percentile matches as an exact integer in all 10 regions; 
 `tools/make_fixtures.R` runs the R package on the vignette examples and writes every intermediate object to `tests/fixtures/` as CSV and JSON: 32 basis-function specifications (with and without values outside the fitting range), 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The Python test-suite compares against these numbers with absolute tolerances of 1e-10 to 1e-12.
 
 ```
-pytest            # 138 tests
+pytest            # 132 tests; install the [twostage] extra or 2 of them skip
 ```
 
 A second, independent check lives in `tools/side_by_side.R` / `tools/side_by_side.py`: five complete analyses are run end to end in both languages, including the model fit, on data and specifications not used for the unit-test fixtures (the `drug` trial with OLS on exposure histories, the `nested` case-control study with conditional logistic regression, a logistic and a quasi-Poisson Chicago model with threshold, polynomial, strata and integer bases, 80% and 90% intervals, exposure-history matrices passed to `at`, and a four-city simulation with known truth). All 102 quantities compared agree to better than 1e-8; most to 1e-12. The report is printed by `python tools/side_by_side.py` and the test-suite runs it too.
@@ -248,6 +258,7 @@ src/dlnmpy/
   penalty.py     cbpen
   penalized.py   fit_pgam / fit_pglm: penalised IRLS with REML/ML smoothing (mgcv's criterion)
   plot.py        matplotlib plots (journal and colour themes; plot.style())
+  twostage.py    stack_reduced, predict_reduced: the bridges to and from a meta-analysis
   workflow.py    dlnm(): one call from a data frame to MMT, RR table, attributable fractions, figure
   datasets.py    chicagoNMMAPS, drug, nested
 docs/
@@ -264,7 +275,7 @@ examples/            vignette reproduction
 
 1. Analytic derivatives for the penalised fitter (mgcv-speed smoothing parameter selection).
 2. Parametric-bootstrap intervals for any derived quantity, and a Bayesian route (same design matrix in PyMC/numpyro).
-3. Multilevel meta-analysis (nested random levels, as in `mixmeta`'s extended framework) and longitudinal/repeated-measures structures.
+3. Longitudinal/repeated-measures structures. (Multilevel meta-analysis belongs to mixmetapy's roadmap.)
 4. A Rust core with Python bindings, validated with the same fixtures.
 
 ## Status
@@ -279,7 +290,7 @@ See `CONTRIBUTING.md`. The rule is numerical equivalence with R: changes to the 
 
 There is no paper for `dlnmpy`. Cite the methods papers below for the models, and the software as:
 
-> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.7.0). 2026. https://github.com/Logic06183/dlnmpy
+> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.8.0). 2026. https://github.com/Logic06183/dlnmpy
 
 A `CITATION.cff` is in the repository, so GitHub's "Cite this repository" button gives the same thing in BibTeX or APA. No DOI yet.
 

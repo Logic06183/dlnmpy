@@ -174,14 +174,7 @@ def test_fit_clogit_drops_rows_with_missing_values():
     np.testing.assert_allclose(np.asarray(res.params), np.asarray(ref.params), rtol=1e-10)
 
 
-# --- meta / penalised ---------------------------------------------------------
-def test_mixmeta_refuses_missing_outcomes():
-    y = np.array([[0.1, 0.2], [0.3, np.nan], [0.2, 0.1]])
-    S = np.array([np.eye(2) * 0.01] * 3)
-    with pytest.raises(ValueError, match="missing"):
-        dl.meta.mixmeta(y, S)
-
-
+# --- penalised -----------------------------------------------------------------
 def test_fit_pglm_accepts_a_scalar_sp(chicago):
     pytest.importorskip("statsmodels")
     d = chicago.iloc[:800]

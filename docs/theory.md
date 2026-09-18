@@ -115,6 +115,8 @@ The MMT is the `x` in a grid (by default the 1st to 99th percentiles at step 0.1
 
 ## 11. Multivariate meta-analysis (Gasparrini, Armstrong & Kenward 2012)
 
+Implemented in the separate package mixmetapy since 0.8.0; the specification stays here because it is the second stage of the design.
+
 Location `i` supplies reduced coefficients `y_i` (k-vector) with covariance `S_i`. The model is `y_i ~ N(X_i beta, S_i + Psi)`, `X_i = x_i' (x) I_k`, with `Psi` the between-location covariance. Writing `Sigma_i = S_i + Psi` with Cholesky factor `U_i` (`Sigma_i = U_i' U_i`), the GLS estimate is `beta = (sum X_i' Sigma_i^-1 X_i)^-1 sum X_i' Sigma_i^-1 y_i`, computed by stacking `U_i^-T X_i` and `U_i^-T y_i` and solving least squares. The REML log-likelihood is
 
     l_R(Psi) = c - sum_i log|U_i| - 1/2 log|sum_i X_i' Sigma_i^-1 X_i| - 1/2 sum_i r_i' Sigma_i^-1 r_i

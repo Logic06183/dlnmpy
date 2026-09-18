@@ -58,17 +58,6 @@ def test_overlay_labels_must_match_curves(chicago, cases):
         dl.plot.overlay_slices(p, var=[-20, 0, 33], labels=["cold"])
 
 
-def test_qtest_pvalue_is_not_rounded_to_zero():
-    rng = np.random.default_rng(0)
-    m, k = 30, 1
-    y = rng.normal(0, 1, (m, k))  # large heterogeneity against small S: Q around 600
-    S = np.full((m, k, k), 0.05)
-    fit = dl.mixmeta(y, S, method="fixed")
-    q = fit.qtest()
-    assert q["pvalue"][0] > 0  # 1 - cdf would return exactly 0
-    assert q["pvalue"][0] < 1e-30
-
-
 def test_ps_too_small_for_prediction_fails_at_construction():
     # R builds ps(df=4, degree=3) and only fails inside crosspred(); here the
     # message comes from the basis function, where 'df' is being chosen

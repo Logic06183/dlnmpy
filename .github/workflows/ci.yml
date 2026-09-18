@@ -38,9 +38,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # mixmetapy is deliberately absent: dlnmpy must work without it, and
+      # test_twostage.py checks that the deprecated dlnmpy.meta says what to install
       - run: pip install . pytest
       - run: python -c "import dlnmpy, numpy; print(dlnmpy.__version__, numpy.__version__)"
-      - run: pytest -q tests/test_basis.py tests/test_crossbasis.py tests/test_predict.py tests/test_attribution.py tests/test_meta.py
+      - run: pytest -q tests/test_basis.py tests/test_crossbasis.py tests/test_predict.py tests/test_attribution.py tests/test_twostage.py
 
   # the wheel and sdist must build and pass twine's metadata check on every
   # push, so a broken release is caught before a tag is cut
