@@ -8,6 +8,14 @@ Two kinds of evidence that `dlnmpy` reproduces the R packages it ports.
    numbers, and `tools/side_by_side.*` runs five complete analyses end to end.
 2. **A published analysis, reproduced whole** — the section below.
 
+The meta-analysis moved to the separate package
+[mixmetapy](https://github.com/Logic06183/mixmetapy) in 0.8.0, and its own
+evidence moved with it: the 12-location comparison with R's `mixmeta`, and
+the conventions that differ from `mvmeta`, are in its `docs/validation.md`.
+The two published analyses below stay here because they run both stages;
+their meta-analysis rows are repeated there. The numbers below were produced
+before the split and reproduced unchanged after it (18 September 2026).
+
 ## Gasparrini et al. (2015) *Lancet*, England & Wales
 
 > Gasparrini A, Guo Y, Hashizume M, et al. Mortality risk attributable to high
@@ -18,7 +26,7 @@ The author's code and data are public at
 [gasparrini/2015_gasparrini_Lancet_Rcodedata](https://github.com/gasparrini/2015_gasparrini_Lancet_Rcodedata).
 `examples/lancet_2015.py` is a translation of its five stages, run on the 10
 regions of England and Wales, 1993-2006, 5,113 days each, 7,573,716 deaths.
-This exercises `crossbasis`, `fit_glm`, `crossreduce`, `mixmeta`, BLUPs,
+This exercises `crossbasis`, `fit_glm`, `crossreduce`, `mixmeta` (from mixmetapy), BLUPs,
 `findmin` and `attrdl` in one pipeline.
 
 ### Result

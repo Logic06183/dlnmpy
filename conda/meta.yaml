@@ -1,7 +1,7 @@
 # Recipe for conda-forge (submit to conda-forge/staged-recipes; replace the
 # sha256 with the one of the sdist on PyPI).
 {% set name = "dlnmpy" %}
-{% set version = "0.7.0" %}
+{% set version = "0.8.0" %}
 
 package:
   name: {{ name|lower }}
@@ -26,6 +26,10 @@ requirements:
     - numpy >=1.22
     - scipy >=1.8
     - pandas >=1.4
+  run_constrained:
+    # optional, for two-stage designs (pip extra "twostage"); needs its own
+    # conda-forge recipe before it can be listed as a dependency here
+    - mixmetapy >=0.1.0
 
 test:
   imports:

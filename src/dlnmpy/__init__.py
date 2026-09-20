@@ -18,7 +18,7 @@ Typical workflow::
     pred.plot("overall")
 """
 
-from . import attribution, basis, datasets, meta, plot, uncertainty, workflow
+from . import attribution, basis, datasets, plot, twostage, uncertainty, workflow
 from ._rcompat import pretty, quantile7
 from .basis import bs, cr, integer, lin, ns, poly, ps, strata, thr
 from .core import CrossBasis, OneBasis, crossbasis, onebasis
@@ -28,7 +28,7 @@ from .model import design_matrix, extract_coef_vcov, fit_clogit, fit_glm, get_li
 from .penalty import cbpen
 from .predict import CrossPred, CrossReduce, crosspred, crossreduce
 from .attribution import attr_table, attrdl, findmin, mmt, simulate_coef
-from .meta import MixMeta, mixmeta, predict_reduced, stack_reduced
+from .twostage import predict_reduced, stack_reduced
 from .penalized import PenalizedGLMResults, fit_pgam, fit_pglm
 from .uncertainty import bootstrap, bootstrap_ci, empirical_ci, model_grid, qaic, simulate_pred
 from .workflow import DLNM, dlnm, percentile_knots, percentile_of
@@ -38,7 +38,24 @@ try:                                    # single source of truth: pyproject.toml
 
     __version__ = _pkg_version("dlnmpy")
 except (ImportError, PackageNotFoundError):  # running from a source tree
-    __version__ = "0.6.1"
+    __version__ = "0.8.0"
+
+
+def __getattr__(name):
+    # dl.meta, dl.mixmeta and dl.MixMeta worked until 0.7; the meta-analysis now
+    # lives in mixmetapy. Resolve them lazily so that importing dlnmpy never
+    # needs mixmetapy, and say where they went when it is missing.
+    if name in ("meta", "mixmeta", "MixMeta"):
+        import importlib
+        import warnings
+
+        meta = importlib.import_module(".meta", __name__)
+        if name == "meta":
+            return meta
+        warnings.warn(f"dlnmpy.{name} is deprecated and will be removed in dlnmpy 1.0; "
+                      f"use mixmetapy.{name}", DeprecationWarning, stacklevel=2)
+        return getattr(meta._mixmetapy, name)
+    raise AttributeError(f"module 'dlnmpy' has no attribute {name!r}")
 
 __all__ = [
     "onebasis", "crossbasis", "crosspred", "crossreduce", "exphist", "logknots",
@@ -47,6 +64,6 @@ __all__ = [
     "fit_pgam", "fit_pglm", "PenalizedGLMResults", "bootstrap", "empirical_ci", "model_grid", "qaic", "simulate_pred",
     "lag_matrix", "mklag", "seqlag", "fit_glm", "fit_clogit", "design_matrix", "extract_coef_vcov",
     "get_link", "pretty", "quantile7", "basis", "datasets", "attribution", "plot", "uncertainty",
-    "attrdl", "findmin", "mmt", "attr_table", "simulate_coef", "meta", "mixmeta", "MixMeta", "predict_reduced", "stack_reduced",
+    "attrdl", "findmin", "mmt", "attr_table", "simulate_coef", "twostage", "predict_reduced", "stack_reduced",
     "dlnm", "DLNM", "percentile_knots", "percentile_of", "workflow", "bootstrap_ci",
 ]

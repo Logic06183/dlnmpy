@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 
 import dlnmpy as dl
+from mixmetapy import mixmeta  # pip install dlnmpy[twostage]
 
 DATA_URL = ("https://raw.githubusercontent.com/gasparrini/"
             "2015_gasparrini_Lancet_Rcodedata/master/regEngWales.csv")
@@ -81,7 +82,7 @@ def main() -> None:
     Y, S = np.vstack(coefs), np.stack(vcovs)
     avgtmean = np.array([m[0] for m in meta_x])
     rangetmean = np.array([m[1] for m in meta_x])
-    mv = dl.mixmeta(Y, S, np.column_stack([np.ones(len(Y)), avgtmean, rangetmean]),
+    mv = mixmeta(Y, S, np.column_stack([np.ones(len(Y)), avgtmean, rangetmean]),
                     method="reml", bscov="unstr")
     blups = np.asarray(mv.blup(se=True)["blup"], float)
     blupvcov = mv.blup(se=True)["vcov"]

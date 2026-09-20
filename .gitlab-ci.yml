@@ -1,0 +1,100 @@
+# GitLab CI for dlnmpy: the same checks as .github/workflows/ci.yml, plus the
+# PyPI release (release.yml). Runs on gitlab.com while GitHub Actions is
+# unavailable on the GitHub account; the two sets of files are kept in step.
+#
+# gitlab.com Free gives 400 compute minutes a month per namespace. To stay
+# inside that, an ordinary branch push lints and tests on one Python; the full
+# 3.9-3.13 matrix runs on main, on merge requests and on release tags.
+#
+# Release: push a tag v0.8.0 (matching pyproject.toml). The publish job uses
+# PyPI trusted publishing, so no token is stored in GitLab. One-time setup on
+# PyPI (project > Manage > Publishing > add a GitLab publisher): namespace
+# <your gitlab user>, project dlnmpy, top-level pipeline file .gitlab-ci.yml,
+# environment pypi.
+
+stages: [lint, test, build, publish]
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never                     # no duplicate branch pipeline when an MR is open
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+default:
+  image: python:3.12
+  interruptible: true
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+cache:
+  key: pip
+  paths: [.cache/pip]
+
+.full_matrix: &full_matrix
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+lint:
+  stage: lint
+  script:
+    - pip install ruff==0.16.5
+    - ruff check src tests
+
+test:
+  stage: test
+  script:
+    - pip install -e ".[dev]"
+    - pytest -q
+
+test-matrix:
+  stage: test
+  <<: *full_matrix
+  image: python:$PY
+  parallel:
+    matrix:
+      - PY: ["3.9", "3.11", "3.13"]
+  script:
+    - pip install -e ".[dev]"
+    - pytest -q
+
+# the library must import and run the core with numpy/scipy/pandas alone:
+# statsmodels, matplotlib and mixmetapy are optional extras. mixmetapy is
+# deliberately absent, so test_twostage.py checks the missing-package path.
+minimal:
+  stage: test
+  script:
+    - pip install . pytest
+    - python -c "import dlnmpy, numpy; print(dlnmpy.__version__, numpy.__version__)"
+    - pytest -q tests/test_basis.py tests/test_crossbasis.py tests/test_predict.py tests/test_attribution.py tests/test_twostage.py
+
+build:
+  stage: build
+  script:
+    - pip install build twine
+    - python -m build
+    - twine check dist/*
+    - pip install dist/*.whl && python -c "import dlnmpy; print(dlnmpy.__version__)"
+  artifacts:
+    paths: [dist/]
+    expire_in: 1 week
+
+publish:
+  stage: publish
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d/
+  needs: [build, lint, test, test-matrix, minimal]
+  environment: pypi
+  id_tokens:
+    PYPI_ID_TOKEN:
+      aud: pypi
+  script:
+    - ver=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+    - test "${CI_COMMIT_TAG#v}" = "$ver" || { echo "tag $CI_COMMIT_TAG != pyproject version $ver"; exit 1; }
+    - pip install "twine>=6.1"
+    - twine upload dist/*             # no token: twine uses trusted publishing

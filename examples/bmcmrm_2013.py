@@ -34,6 +34,7 @@ import numpy as np
 import pandas as pd
 
 import dlnmpy as dl
+from mixmetapy import mixmeta  # pip install dlnmpy[twostage]
 
 DATA_URL = ("https://raw.githubusercontent.com/gasparrini/"
             "2013_gasparrini_BMCmrm_Rcodedata/master/regEngWales.csv")
@@ -92,7 +93,7 @@ def main() -> None:
         realised_arglag = dict(cb.arglag)   # R: attr(cb, "arglag"), with the intercept
 
     # ---- second stage ------------------------------------------------------
-    pooled = {k: dl.mixmeta(np.vstack(y), np.stack(S), method="reml")
+    pooled = {k: mixmeta(np.vstack(y), np.stack(S), method="reml")
               for k, (y, S) in red.items()}
 
     a = dict(argvar)
@@ -127,7 +128,7 @@ def main() -> None:
           f"{min(qaic['m2'], qaic['m3']) - qaic['m1']:.0f} QAIC units")
 
     lat = np.column_stack([np.ones(len(regions)), LAT])
-    mr = dl.mixmeta(np.vstack(red["all"][0]), np.stack(red["all"][1]), lat, method="reml")
+    mr = mixmeta(np.vstack(red["all"][0]), np.stack(red["all"][1]), lat, method="reml")
     print(f"\n  meta-regression on latitude: {mr.coef.shape[0]} predictors x "
           f"{mr.coef.shape[1]} outcomes, logLik {mr.loglik:.4f}")
 

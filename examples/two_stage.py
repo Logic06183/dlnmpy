@@ -15,6 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 import dlnmpy as dl  # noqa: E402
+from mixmetapy import mixmeta  # noqa: E402  (pip install dlnmpy[twostage])
 
 sim = dl.datasets.simulate_cities(n_cities=12, n_days=2000, seed=1)
 knots, bk, cen = [8, 15, 22], [-5, 40], 18
@@ -35,11 +36,11 @@ for city, d in sim.groupby("city"):
 
 # ---- stage 2: multivariate meta-analysis and meta-regression -----------------
 y, S = dl.stack_reduced(reduced)
-mm = dl.mixmeta(y, S, method="reml")
+mm = mixmeta(y, S, method="reml")
 print(mm.summary(), "\n")
 
 Xmeta = np.column_stack([np.ones(len(y)), mean_temp])
-mr = dl.mixmeta(y, S, X=Xmeta, method="reml")
+mr = mixmeta(y, S, X=Xmeta, method="reml")
 q0, q1 = mm.qtest(), mr.qtest()
 print(f"meta-regression on mean temperature: I2 {q0['I2'][0]:.1f}% -> {q1['I2'][0]:.1f}%, "
       f"AIC {mm.aic:.2f} -> {mr.aic:.2f}\n")

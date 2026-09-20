@@ -35,8 +35,8 @@ The public API mirrors the R package so that existing R analyses translate almos
 | `m$sp`, `m$sig2`, `m$edf`, `m$gcv.ubre` | `fit.sp`, `fit.scale`, `fit.edf`, `fit.reml` |
 | `attrdl(x, cb, cases, model, cen=mmt)` (Gasparrini script) | `dl.attrdl(x, cb, cases, model, cen=mmt, name="cb")` |
 | `findmin(cb, model, from, to, by)` (Gasparrini script) | `dl.findmin(cb, model, from_=, to=, by=, name="cb")`, or `dl.mmt(...)` with CI |
-| `mixmeta(y ~ 1, S, method="reml")` (mixmeta package) | `dl.mixmeta(y, S, method="reml")` |
-| `mixmeta(y ~ x, S)` | `dl.mixmeta(y, S, X=np.column_stack([np.ones(m), x]))` |
+| `mixmeta(y ~ 1, S, method="reml")` (mixmeta package) | `mixmetapy.mixmeta(y, S, method="reml")` (separate package: `pip install "dlnmpy[twostage]"`) |
+| `mixmeta(y ~ x, S)` | `mixmetapy.mixmeta(y, S, X=np.column_stack([np.ones(m), x]))` |
 | `blup(mm, se=TRUE, pi=TRUE, vcov=TRUE)` | `mm.blup(se=True)` |
 | `predict(mm, newdata, se=TRUE)` | `mm.predict(Xnew, se=True)` |
 | `qtest(mm)`, `summary(mm)$i2stat` | `mm.qtest()` |

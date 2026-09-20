@@ -1,10 +1,25 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 (unreleased)
 
+The multivariate meta-analysis is now a separate package, [mixmetapy](https://github.com/Logic06183/mixmetapy) 0.1.0, as `mixmeta` is separate from `dlnm` in R. Antonio Gasparrini suggested the split: the package had grown to cover mixed-effects meta-analysis, which is a methodology of its own with users who never fit a DLNM. Nothing numerical changed. The code moved unchanged with its R fixtures and history, and the three published analyses (`examples/lancet_2015.py`, `examples/bmcmrm_2013.py`, the Chicago attributable-risk example) give the same numbers to the last printed digit before and after.
+
+- `mixmeta`, `MixMeta`, `vech` and `xpnd` are in mixmetapy. Install with `pip install "dlnmpy[twostage]"`.
+- `stack_reduced` and `predict_reduced` stay in dlnmpy, now in `dlnmpy.twostage` (still `dl.stack_reduced`, `dl.predict_reduced`). They take and return plain arrays, so `predict_reduced` works with pooled coefficients from any source.
+- dlnmpy no longer needs mixmetapy to import or to run a single-location analysis; the CI `minimal` job checks this without it installed.
 - Plotting now needs matplotlib >= 3.6: `summary_figure` crashed on 3.5 (`pcolormesh` rejects non-finite coordinates there).
 - Two tests no longer depend on library versions (`links.Probit` is lowercase before statsmodels 0.14; `axvspan` returns a `Polygon` before matplotlib 3.9).
-- Test suite run locally, 138 passed, on Python 3.9 with the minimum versions (numpy 1.22.0, scipy 1.8.0, pandas 1.4.0, statsmodels 0.13.1, matplotlib 3.6.0), on Python 3.11 (numpy 1.26, pandas 2.3) and on Python 3.13 with the latest releases.
+- `.gitlab-ci.yml` alongside the GitHub workflows, with the same checks and a PyPI trusted-publishing release job.
+
+### Moving from 0.7
+
+| 0.7 | 0.8 |
+|---|---|
+| `dl.mixmeta(y, S, ...)`, `dl.meta.mixmeta(...)` | `from mixmetapy import mixmeta` |
+| `dl.MixMeta`, `dlnmpy.meta.vech`, `dlnmpy.meta.xpnd` | `mixmetapy.MixMeta`, `mixmetapy.vech`, `mixmetapy.xpnd` |
+| `dlnmpy.meta.stack_reduced`, `dlnmpy.meta.predict_reduced` | `dl.stack_reduced`, `dl.predict_reduced` (unchanged) |
+
+The old names keep working through 0.8 and 0.9: with mixmetapy installed they forward to it with a `DeprecationWarning`; without it they raise an `ImportError` that says `pip install dlnmpy[twostage]`. They are removed in 1.0.
 
 ## 0.7.0 (2026-09-14)
 
