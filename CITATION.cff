@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use dlnmpy, please cite it as below, together with the methods papers listed in the README."
 title: "dlnmpy: distributed lag non-linear models in Python"
 type: software
-version: 0.8.2
+version: 0.8.3
 date-released: 2026-09-21
 license: GPL-2.0-or-later
 repository-code: "https://github.com/Logic06183/dlnmpy"

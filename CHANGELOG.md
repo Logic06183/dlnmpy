@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.3 (2026-09-21)
+
+Citation metadata only; no change to any numerical result.
+
+- `CITATION.cff` carries the author's ORCID and affiliation, and `.zenodo.json` describes the archive, so each release is deposited in Zenodo with a DOI and can be cited properly.
+
 ## 0.8.2 (2026-09-21)
 
 Reproducing Gasparrini, Scheipl, Armstrong & Kenward (2017) *Biometrics*, the penalised DLNM paper, against mgcv. The penalty matrices, their ranks and the REML/ML criterion reproduce mgcv to machine precision, and at matched smoothing parameters the coefficients agree to 1e-10 — but the outer smoothing-parameter search is weaker than mgcv's Newton method, and it failed in three ways.
