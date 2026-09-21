@@ -291,7 +291,7 @@ See `CONTRIBUTING.md`. The rule is numerical equivalence with R: changes to the 
 
 There is no paper for `dlnmpy`. Cite the methods papers below for the models, and the software as:
 
-> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.8.0). 2026. https://github.com/Logic06183/dlnmpy
+> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.8.1). 2026. https://github.com/Logic06183/dlnmpy
 
 A `CITATION.cff` is in the repository, so GitHub's "Cite this repository" button gives the same thing in BibTeX or APA. No DOI yet.
 

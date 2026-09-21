@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.8.1 (2026-09-21)
+
+Found by reproducing four more landmark papers against R. The DLNM core came through unchanged — the exposure-lag-response framework paper (Gasparrini 2014 *Stat Med*) agrees on 197 quantities to 1.8e-10, the attributable-risk paper (Gasparrini & Leone 2014) to 1e-13, the projections tutorial (Vicedo-Cabrera, Sera & Gasparrini 2019) to 4.3e-12 — but two defects in `fit_clogit`, which serves case-crossover and matched case-control designs, and two rough edges in porting the authors' own scripts.
+
+**Fixed: a silent wrong answer**
+
+- `fit_clogit` returned **all-NaN coefficients without raising** on designs whose columns are large, such as a cross-basis of cumulative exposure reaching 1e4. statsmodels' Newton takes the full step with no safeguard, so the first step overflows `exp(X @ beta)` and never recovers; the failure then surfaced downstream as the unrelated-sounding "coef/vcov not consistent with basis matrix". A step-halving Newton, as `survival::coxph` uses, now takes over when that happens. On the model that failed (Gasparrini 2014 *Stat Med* Table II, model 2, a piecewise-constant lag on cumulative radon exposure) coefficients now agree with `coxph` to 7.1e-10 and standard errors to 2.7e-12.
+- `fit_clogit`'s covariance differenced the score at a fixed absolute step of 1e-4. When the design columns are large the coefficients are of order 1e-5, so that step measured the wrong curvature and **every standard error and confidence interval was up to 5e-3 out** — the docstring claimed 1e-10. The step now follows each coefficient's own standard error, calibrated against R in both regimes: the large-column case improves from 5.6e-03 to 1.8e-10, and the nested case-control fit in `tools/side_by_side.py`, whose standard errors reach 6, improves from 2.1e-08 to 3.3e-09.
+
+**Changed**
 
 Found while reproducing two more landmark papers against R (Gasparrini & Leone 2014 *BMC MRM*, and the Vicedo-Cabrera, Sera & Gasparrini 2019 *Epidemiology* projections tutorial). Both reproduce exactly — the attributable fractions of the 2014 paper to 1e-13, the 2019 projected fractions to 4.3e-12 — but two things made porting the authors' own scripts harder than it should be.
 

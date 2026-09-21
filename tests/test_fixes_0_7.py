@@ -3,6 +3,7 @@
 import warnings
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import dlnmpy as dl
@@ -267,3 +268,65 @@ def test_simulate_coef_accepts_external_normals():
     np.testing.assert_allclose(np.cov(a), vcov, atol=0.05)
     with pytest.raises(ValueError, match="normals"):
         dl.simulate_coef(coef, vcov, normals=np.zeros((500, 2)))
+
+
+def test_clogit_survives_a_large_valued_design():
+    """statsmodels' Newton takes the full step; on a design whose columns reach
+    1e4 (a cross-basis of cumulative exposure) it overflows exp(X @ beta) and
+    returned NaN coefficients silently. fit_clogit falls back to a step-halving
+    Newton, as survival::coxph does."""
+    pytest.importorskip("statsmodels")
+    rng = np.random.default_rng(20260921)
+    nset, nper = 200, 4
+    grp = np.repeat(np.arange(nset), nper)
+    n = nset * nper
+    Q = rng.gamma(2, 2500, size=(n, 12))
+    cb = dl.crossbasis(Q, lag=11, argvar={"fun": "lin"},
+                       arglag={"fun": "strata", "breaks": [4, 8], "intercept": True})
+    M = np.asarray(cb.matrix)
+    assert np.nanmax(np.abs(M)) > 1e4          # the regime that used to break
+    eta = M @ np.array([2e-6, 1e-6, -1.5e-6])
+    y = np.zeros(n)
+    for s in range(nset):
+        ix = np.arange(s * nper, (s + 1) * nper)
+        p = np.exp(eta[ix] - eta[ix].max())
+        y[ix[rng.choice(nper, p=p / p.sum())]] = 1
+    res = dl.fit_clogit(y, pd.DataFrame(M), grp)
+    b = np.asarray(res.params, dtype=float)
+    assert np.all(np.isfinite(b)), "coefficients must not come back NaN"
+    se = np.sqrt(np.diag(np.asarray(res.cov_params())))
+    assert np.all(np.isfinite(se)) and np.all(se > 0)
+    # the score must vanish at the solution: an independent check that this is
+    # the maximum, not merely a finite number
+    g = np.asarray(res.model.score(b), dtype=float)
+    assert np.max(np.abs(g)) < 1e-4 * max(1.0, np.max(np.abs(g * 0 + 1)))
+
+
+def test_clogit_covariance_step_follows_the_coefficient_scale():
+    """The observed-information step must scale with each coefficient, not sit
+    at a fixed 1e-4: with columns of order 1e4 the coefficients are ~1e-5 and a
+    fixed step measured the wrong curvature (standard errors ~5e-3 out)."""
+    pytest.importorskip("statsmodels")
+    rng = np.random.default_rng(5)
+    nset, nper = 250, 4
+    grp = np.repeat(np.arange(nset), nper)
+    n = nset * nper
+    for scale in (1.0, 1e4):
+        x1 = rng.normal(size=n) * scale
+        x2 = rng.normal(size=n) * scale
+        eta = (0.4 * x1 - 0.25 * x2) / scale
+        y = np.zeros(n)
+        for s in range(nset):
+            ix = np.arange(s * nper, (s + 1) * nper)
+            p = np.exp(eta[ix] - eta[ix].max())
+            y[ix[rng.choice(nper, p=p / p.sum())]] = 1
+        res = dl.fit_clogit(y, pd.DataFrame({"x1": x1, "x2": x2}), grp)
+        cov = np.asarray(res.cov_params())
+        # compare with the information matrix differenced at a much finer step:
+        # a correctly scaled rule is insensitive to the step, a mis-scaled one is not
+        from dlnmpy.model import _score_jacobian
+        b = np.asarray(res.params, dtype=float)
+        se = np.sqrt(np.abs(np.diag(cov)))
+        fine = np.linalg.inv(-_score_jacobian(res.model.score, b, scale=se, h0=1e-4))
+        rel = np.max(np.abs(cov - fine) / np.maximum(np.abs(fine), 1e-300))
+        assert rel < 1e-6, f"covariance depends on the differencing step (scale {scale:g}): {rel:.1e}"

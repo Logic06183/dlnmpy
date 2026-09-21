@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import re
 
+import warnings
+
 import numpy as np
 
 __all__ = ["extract_coef_vcov", "get_link", "fit_glm", "fit_clogit", "design_matrix"]
@@ -272,25 +274,102 @@ def fit_clogit(y, X, groups, **kwargs):
     if n_dropped:
         y_arr, g_arr = y_arr[ok], g_arr[ok]
         X = X.iloc[ok] if hasattr(X, "iloc") else X_arr[ok]
-    res = ConditionalLogit(y_arr, X, groups=g_arr).fit(**kwargs)
-    res.n_dropped = n_dropped
-    # statsmodels approximates the Hessian numerically (about 1e-4 relative
-    # error in the covariance). Replace it with Richardson-extrapolated central
-    # differences of the analytic score, which agrees with R's information
-    # matrix to about 1e-10.
+    model = ConditionalLogit(y_arr, X, groups=g_arr)
+    with warnings.catch_warnings():
+        # a diverging Newton step overflows exp(X @ beta) and floods the log
+        warnings.simplefilter("ignore", RuntimeWarning)
+        res = model.fit(**kwargs)
     b = np.asarray(res.params, dtype=float)
-    cov = np.linalg.inv(-_score_jacobian(res.model.score, b))
+    if not np.all(np.isfinite(b)):
+        # statsmodels' Newton takes the full step with no step-halving, so a
+        # design with large columns (a cross-basis of cumulative exposure, say)
+        # can overflow on the first step and never recover -- silently, as NaN
+        # coefficients rather than an error. R's coxph safeguards its Newton
+        # with step-halving; do the same and start again from zero.
+        b = _newton_clogit(model, b.size)
+        inner = getattr(res, "_results", res)
+        inner.params = b
+        res.params = b
+    cov = _clogit_cov(model.score, b)
     inner = getattr(res, "_results", res)  # results may be wrapped
     inner.normalized_cov_params = cov
     inner.cov_params_default = cov
+    res.n_dropped = n_dropped
     return res
 
 
-def _score_jacobian(score, b, h0: float = 1e-4) -> np.ndarray:
+def _newton_clogit(model, p: int, maxiter: int = 200, tol: float = 1e-11) -> np.ndarray:
+    """Newton-Raphson with step-halving, as ``survival::coxph`` does it.
+
+    Used when statsmodels' unsafeguarded Newton diverges. Halving the step
+    whenever the log-likelihood fails to improve (or is not finite) keeps the
+    iteration inside the region where ``exp(X @ beta)`` is representable.
+    """
+    b = np.zeros(p)
+    ll = float(model.loglike(b))
+    for _ in range(maxiter):
+        g = np.asarray(model.score(b), dtype=float)
+        H = _score_jacobian(model.score, b, scale=np.ones(p))
+        try:
+            step = np.linalg.solve(-H, g)
+        except np.linalg.LinAlgError:
+            step = np.linalg.lstsq(-H, g, rcond=None)[0]
+        t, improved = 1.0, False
+        for _ in range(60):                     # step-halving
+            cand = b + t * step
+            cand_ll = float(model.loglike(cand))
+            if np.isfinite(cand_ll) and cand_ll >= ll - 1e-12:
+                improved = True
+                break
+            t /= 2
+        if not improved:
+            break
+        delta = np.max(np.abs(cand - b) / np.maximum(np.abs(b), 1e-8))
+        b, ll = cand, cand_ll
+        if delta < tol:
+            break
+    if not np.all(np.isfinite(b)):
+        raise RuntimeError("conditional logistic regression did not converge; "
+                           "check the scale of the design columns")
+    return b
+
+
+def _clogit_cov(score, b) -> np.ndarray:
+    """Covariance from the observed information, by finite differences of the
+    analytic score.
+
+    The step has to follow the scale of each coefficient, not a fixed absolute
+    size: a design whose columns are large (a cumulative-exposure cross-basis)
+    has coefficients of order 1e-5, and differencing those with a 1e-4 step
+    measures the wrong curvature -- standard errors came out ~1e-3 relative
+    away from R's. The standard error itself is the natural scale, so take a
+    crude pass to get one and difference again around it. The step constant was
+    calibrated against R on both regimes: a nested case-control fit whose
+    standard errors reach 6, and a cumulative-exposure fit whose coefficients
+    are of order 1e-5.
+    """
+    b = np.asarray(b, dtype=float)
+    H = _score_jacobian(score, b, scale=np.maximum(np.abs(b), 1.0))
+    try:
+        se = np.sqrt(np.abs(np.diag(np.linalg.inv(-H))))
+    except np.linalg.LinAlgError:
+        return np.linalg.pinv(-H)
+    if not np.all(np.isfinite(se)) or np.any(se <= 0):
+        return np.linalg.inv(-H)
+    H = _score_jacobian(score, b, scale=se, h0=1e-3)
+    return np.linalg.inv(-H)
+
+
+def _score_jacobian(score, b, scale=None, h0: float = 1e-4) -> np.ndarray:
+    """Richardson-extrapolated central differences of ``score`` at ``b``.
+    ``scale`` sets the differencing step per coordinate (``h = h0 * scale``)."""
     p = b.size
+    if scale is None:
+        scale = np.maximum(np.abs(b), 1.0)
+    scale = np.asarray(scale, dtype=float)
     H = np.zeros((p, p))
     for j in range(p):
-        h = h0 * max(1.0, abs(b[j]))
+        h = h0 * scale[j]
         e = np.zeros(p)
         e[j] = h
         d1 = (score(b + e) - score(b - e)) / (2 * h)
