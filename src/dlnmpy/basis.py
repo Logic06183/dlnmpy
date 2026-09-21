@@ -164,6 +164,8 @@ def integer(x, values=None, intercept: bool = False):
 # ----------------------------------------------------------------------------
 def ns(x, df=None, knots=None, intercept: bool = False, Boundary_knots=None, **kw):
     """Natural cubic spline (see :func:`dlnmpy._splines.ns`)."""
+    from .core import _match_arg
+    kw = {_match_arg(k): v for k, v in kw.items()}
     bk = kw.pop("boundary_knots", Boundary_knots)
     if kw:
         raise TypeError(f"unexpected arguments for ns: {sorted(kw)}")
@@ -173,6 +175,8 @@ def ns(x, df=None, knots=None, intercept: bool = False, Boundary_knots=None, **k
 def bs(x, df=None, knots=None, degree: int = 3, intercept: bool = False,
        Boundary_knots=None, **kw):
     """B-spline (see :func:`dlnmpy._splines.bs`)."""
+    from .core import _match_arg
+    kw = {_match_arg(k): v for k, v in kw.items()}
     bk = kw.pop("boundary_knots", Boundary_knots)
     if kw:
         raise TypeError(f"unexpected arguments for bs: {sorted(kw)}")

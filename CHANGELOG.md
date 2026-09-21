@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+Found while reproducing two more landmark papers against R (Gasparrini & Leone 2014 *BMC MRM*, and the Vicedo-Cabrera, Sera & Gasparrini 2019 *Epidemiology* projections tutorial). Both reproduce exactly — the attributable fractions of the 2014 paper to 1e-13, the 2019 projected fractions to 4.3e-12 — but two things made porting the authors' own scripts harder than it should be.
+
+- Basis arguments now accept any prefix of `Boundary.knots`, as R's partial matching does. The published code of the dlnm authors writes `argvar = list(fun = "ns", Bound = range(x))`, which previously raised `TypeError` on the first line of an otherwise faithful translation. `Bound=`, `Bo=`, `Boundary=` and the exact R spellings all work, in `onebasis`, `crossbasis`, `ns` and `bs`; unknown arguments are still rejected, and giving the same argument under two spellings is an error.
+- `simulate_coef(..., normals=Z)` takes a matrix of standard normal deviates instead of drawing its own, so a projection or attribution loop can be replayed exactly — feed in R's draws and the two languages agree without Monte Carlo noise. This was previously only possible through a private function. The docstring now also warns that the result is `(k, nsim)`, the transpose of `MASS::mvrnorm`.
+
 ## 0.8.0 (unreleased)
 
 The multivariate meta-analysis is now a separate package, [mixmetapy](https://github.com/Logic06183/mixmetapy) 0.1.0, as `mixmeta` is separate from `dlnm` in R. Antonio Gasparrini suggested the split: the package had grown to cover mixed-effects meta-analysis, which is a methodology of its own with users who never fit a DLNM. Nothing numerical changed. The code moved unchanged with its R fixtures and history, and the three published analyses (`examples/lancet_2015.py`, `examples/bmcmrm_2013.py`, the Chicago attributable-risk example) give the same numbers to the last printed digit before and after.

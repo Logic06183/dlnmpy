@@ -233,3 +233,37 @@ def test_dlnm_mmt_is_cached_and_figure_has_the_interval_band(chicago):
     assert any(type(p).__name__ in ("Rectangle", "Polygon") for p in ax.patches)
     import matplotlib.pyplot as plt
     plt.close("all")
+
+
+# --- 0.8.1: R argument matching and reproducible draws -------------------------
+def test_boundary_knots_accepts_r_partial_matching():
+    """The dlnm authors' published code writes `Bound=` and relies on R's partial
+    matching; porting those scripts should not fail on the first line."""
+    x = np.linspace(-5, 30, 200)
+    ref = dl.onebasis(x, "ns", knots=[5, 15, 22], boundary_knots=[-5, 30])
+    for spelling in ("Bound", "Bo", "Boundary", "Boundary.knots", "Boundary_knots"):
+        b = dl.onebasis(x, "ns", knots=[5, 15, 22], **{spelling: [-5, 30]})
+        np.testing.assert_allclose(b.matrix, ref.matrix, atol=1e-15)
+        np.testing.assert_allclose(b.attrs["boundary_knots"], [-5, 30])
+    cb = dl.crossbasis(x, lag=5, argvar={"fun": "ns", "knots": [5, 15, 22], "Bound": [-5, 30]},
+                       arglag={"fun": "ns", "df": 3})
+    np.testing.assert_allclose(cb.argvar["boundary_knots"], [-5, 30])
+    with pytest.raises(TypeError, match="nonsense"):
+        dl.onebasis(x, "ns", df=3, nonsense=1)
+
+
+def test_simulate_coef_accepts_external_normals():
+    """Projection and attribution loops must be reproducible from a given matrix
+    of normals, so a port can be compared with R without Monte Carlo noise."""
+    coef = np.array([0.1, -0.2, 0.05])
+    A = np.array([[0.3, 0.0, 0.0], [0.1, 0.2, 0.0], [0.05, 0.1, 0.25]])
+    vcov = A @ A.T
+    Z = np.random.default_rng(11).standard_normal((500, 3))
+    a = dl.simulate_coef(coef, vcov, normals=Z)
+    b = dl.simulate_coef(coef, vcov, normals=Z)
+    assert a.shape == (3, 500)
+    np.testing.assert_array_equal(a, b)                      # deterministic
+    np.testing.assert_allclose(a.mean(axis=1), coef, atol=0.05)
+    np.testing.assert_allclose(np.cov(a), vcov, atol=0.05)
+    with pytest.raises(ValueError, match="normals"):
+        dl.simulate_coef(coef, vcov, normals=np.zeros((500, 2)))

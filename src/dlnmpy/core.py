@@ -43,13 +43,43 @@ _ALIASES = {
     "type": "fun",
 }
 
+# names a basis function may legitimately receive: never partial-matched away
+_CANONICAL = frozenset({
+    "fun", "df", "knots", "degree", "intercept", "boundary_knots", "thr_value",
+    "side", "values", "breaks", "cen", "scale", "lag", "x",
+})
+
+
+# R matches argument names on any unambiguous prefix, and the published code of
+# the dlnm authors leans on it: `argvar = list(fun = "ns", Bound = range(x))` is
+# their usual spelling of Boundary.knots. No other argument of any basis function
+# begins with "b", so a prefix of "boundary.knots" is unambiguous here too.
+_BOUNDARY = "boundaryknots"
+
+
+def _match_arg(name: str) -> str:
+    """Map one argument name to its Python spelling, as R's partial matching would."""
+    if name in _ALIASES:
+        return _ALIASES[name]
+    squashed = name.replace(".", "").replace("_", "").lower()
+    if squashed and _BOUNDARY.startswith(squashed) and name not in _CANONICAL:
+        return "boundary_knots"
+    return name
+
 
 def normalise_args(args: dict | None) -> dict:
     """Return a copy of ``args`` with R-style argument names mapped to the
-    Python spellings used by :mod:`dlnmpy.basis`."""
+    Python spellings used by :mod:`dlnmpy.basis`.
+
+    Exact R spellings (``Boundary.knots``, ``thr.value``) are accepted, and so is
+    any prefix of ``Boundary.knots`` (``Bound=``, as R's partial matching allows).
+    """
     out: dict[str, Any] = {}
     for k, v in (args or {}).items():
-        out[_ALIASES.get(k, k)] = v
+        key = _match_arg(k)
+        if key in out and out[key] is not None:
+            raise TypeError(f"{key!r} given twice (as {k!r} and another spelling)")
+        out[key] = v
     return out
 
 

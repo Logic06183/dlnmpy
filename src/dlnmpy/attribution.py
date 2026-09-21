@@ -38,17 +38,35 @@ __all__ = ["attrdl", "findmin", "mmt", "attr_table", "simulate_coef", "MMTResult
 
 
 # ----------------------------------------------------------------------------
-def simulate_coef(coef, vcov, nsim: int = 5000, seed=None) -> np.ndarray:
+def simulate_coef(coef, vcov, nsim: int = 5000, seed=None, normals=None) -> np.ndarray:
     """Draw ``nsim`` coefficient vectors from N(coef, vcov).
 
     Uses the eigen-decomposition square root of ``vcov`` exactly as the R
     reference code does, so that a matrix of standard normals produced in R
     gives identical draws. Returns an array of shape ``(k, nsim)``.
+
+    Parameters
+    ----------
+    normals : (nsim, k) array, optional
+        Standard normal deviates to use instead of drawing new ones, so that a
+        projection or attribution loop can be reproduced exactly -- pass R's own
+        draws (``matrix(rnorm(nsim * k), nsim)``) to compare the two languages
+        without Monte Carlo noise. ``nsim`` and ``seed`` are then ignored.
+
+    Notes
+    -----
+    The result is ``(k, nsim)``: one *column* per simulation. ``MASS::mvrnorm``
+    returns the transpose, so a loop written as R's ``coefsim[s, ]`` becomes
+    ``simulate_coef(...)[:, s]``.
     """
     coef = np.asarray(coef, dtype=float).ravel()
     vcov = np.asarray(vcov, dtype=float)
-    rng = np.random.default_rng(seed)
-    Z = rng.standard_normal((nsim, coef.size))
+    if normals is not None:
+        Z = np.asarray(normals, dtype=float)
+        if Z.ndim != 2 or Z.shape[1] != coef.size:
+            raise ValueError(f"'normals' must have shape (nsim, {coef.size}), got {Z.shape}")
+    else:
+        Z = np.random.default_rng(seed).standard_normal((nsim, coef.size))
     return _coefsim_from_normals(coef, vcov, Z)
 
 
