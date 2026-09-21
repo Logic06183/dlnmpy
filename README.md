@@ -21,7 +21,7 @@ Yes, to the precision below. Every number here comes from the test-suite or from
 | 64 edge cases (negative lags, sub-periods, exposure histories, `bylag`, `group`, explicit knots, `attrdl` variants) | 1e-6 or better, most 1e-12 | audit for 0.6.0, see `CHANGELOG.md` |
 | `dlnm()` one-call workflow (single and grouped series), `fit_glm` with an offset and aliased columns, `fit_clogit` with missing rows, `attrdl(group=)` | coefficients 1e-13, intervals 1e-11, AF 1e-15 | audit for 0.7.0, see `CHANGELOG.md` |
 | `attrdl.R`, `findmin.R` (attributable risk, MMT) | 1e-8 | `tests/test_attribution.py` |
-| `mixmeta` (REML, BLUPs, predictions, Q, I²), in the companion package [mixmetapy](https://github.com/Logic06183/mixmetapy) | 1e-5 or better | `tests/test_mixmeta.py` there; the two-stage pipeline in `tests/test_twostage.py` |
+| `mixmeta` (REML, BLUPs, predictions, Q, I²), in the companion package [mixmetapy](https://github.com/Logic06183/mixmetapy) | 1e-5 on the validation fixture; a few times 1e-5 on `Psi` and BLUPs for other designs, where these flat likelihoods leave R's optimiser short of Python's | `tests/test_mixmeta.py` there; the two-stage pipeline in `tests/test_twostage.py` |
 | `mgcv::gam` penalised DLNMs (scores, smoothing parameters, coefficients) | 1e-5, 1e-4, 1e-4 | `tests/test_penalized.py` |
 | Gasparrini et al. 2015 *Lancet*, England and Wales, 10 regions | identical MMT percentiles; AF to 4e-5 points | `examples/lancet_2015.py` |
 | Gasparrini and Armstrong 2013 *BMC MRM* | 67 of 68 intermediates to 1e-5..1e-15 | `examples/bmcmrm_2013.py` |
