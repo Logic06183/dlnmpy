@@ -1,0 +1,9 @@
+# the sdist must be able to run its own tests (a conda-forge recipe does):
+# ship them with the R fixtures and the scripts that generate them
+graft tests
+graft tools
+graft docs
+include CHANGELOG.md CITATION.cff CONTRIBUTING.md environment.yml
+recursive-include conda *.yaml
+prune examples/figures
+global-exclude __pycache__ *.py[co]

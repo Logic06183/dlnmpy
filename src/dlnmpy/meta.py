@@ -18,14 +18,23 @@ import warnings
 
 from . import twostage as _twostage
 
+_MISSING = (
+    "dlnmpy.meta moved to the separate package mixmetapy in dlnmpy 0.8.0. "
+    "Install it with:  pip install dlnmpy[twostage]   "
+    "and then use 'from mixmetapy import mixmeta'."
+)
+
 try:
     import mixmetapy as _mixmetapy
 except ImportError as e:
-    raise ImportError(
-        "dlnmpy.meta moved to the separate package mixmetapy in dlnmpy 0.8.0. "
-        "Install it with:  pip install dlnmpy[twostage]   "
-        "and then use 'from mixmetapy import mixmeta'."
-    ) from e
+    raise ImportError(_MISSING) from e
+
+if not hasattr(_mixmetapy, "mixmeta"):      # e.g. a source directory of the same
+    raise ImportError(                      # name shadowing the installed package
+        f"{_MISSING} (found a module named 'mixmetapy' at "
+        f"{getattr(_mixmetapy, '__file__', None) or list(getattr(_mixmetapy, '__path__', []))}, "
+        "but it does not provide mixmeta())"
+    )
 
 _MOVED = {"mixmeta": _mixmetapy, "MixMeta": _mixmetapy, "vech": _mixmetapy, "xpnd": _mixmetapy,
           "stack_reduced": _twostage, "predict_reduced": _twostage}
