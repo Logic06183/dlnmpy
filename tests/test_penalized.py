@@ -3,6 +3,7 @@
 import json
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import dlnmpy as dl
@@ -111,3 +112,58 @@ def test_fit_pglm_gaussian_and_errors():
         fit_pglm(y, Xd, [S[:5, :5]], family="gaussian")
     with pytest.raises(ValueError):
         fit_pglm(y, Xd, [S], family="gaussian", method="gcv")
+
+
+def test_pgam_never_reports_convergence_on_a_nonfinite_fit():
+    """A fit that comes back NaN is not a converged fit. The smoothing-parameter
+    search can run sp off to ~1e19 and return nothing finite; reporting
+    converged=True there is a silent wrong answer that only surfaces later as a
+    misleading 'coef/vcov not consistent with basis matrix' from crosspred."""
+    import warnings
+
+    import inspect
+
+    from dlnmpy.penalized import PenalizedGLMResults
+    src = inspect.getsource(dl.fit_pglm)
+    assert "np.all(np.isfinite(beta))" in src and "converged = False" in src
+    # and the guarantee itself, on a deliberately over-rich design
+    rng = np.random.default_rng(1)
+    n = 1500
+    x = rng.gamma(2, 3, n)
+    Q = np.column_stack([np.roll(x, k) for k in range(12)])
+    cb = dl.crossbasis(Q, lag=11, argvar={"fun": "ps", "df": 10}, arglag={"fun": "ps", "df": 7})
+    y = rng.poisson(0.01, n).astype(float)
+    X = cb.to_dataframe("cb")
+    d = pd.DataFrame({"y": y}).join(X)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            res = dl.fit_pgam("y ~ " + " + ".join(X.columns), d,
+                              penalties={"cb": dl.cbpen(cb)}, family="poisson", method="reml")
+        except np.linalg.LinAlgError as e:
+            assert "sp" in str(e) or "singular" in str(e).lower()   # actionable message
+            return
+    assert isinstance(res, PenalizedGLMResults)
+    if not np.all(np.isfinite(np.asarray(res.params, dtype=float))):
+        assert res.converged is False
+
+
+def test_pgam_starts_when_the_unpenalised_fit_diverges():
+    """The penalty is sometimes the only thing making the model estimable, so
+    the starting smoothing parameters must not be taken from an unpenalised fit
+    that diverges -- that left rho0 = NaN and aborted with a bare LinAlgError."""
+    from dlnmpy.penalized import _Family, _start_rho
+    rng = np.random.default_rng(4)
+    n = 800
+    x = rng.gamma(2, 3, n)
+    Q = np.column_stack([np.roll(x, k) for k in range(10)])
+    cb = dl.crossbasis(Q, lag=9, argvar={"fun": "ps", "df": 9}, arglag={"fun": "ps", "df": 6})
+    X = np.asarray(cb.matrix)
+    y = rng.poisson(0.01, n).astype(float)
+    ok = np.isfinite(X).all(axis=1)
+    X, y = X[ok], y[ok]
+    pen = dl.cbpen(cb)
+    Slist = [pen["Svar"], pen["Slag"]]
+    rho0 = _start_rho(y, X, Slist, _Family("poisson"), np.ones(len(y)), np.zeros(len(y)), X.shape[1])
+    assert rho0.shape == (len(Slist),)
+    assert np.all(np.isfinite(rho0)), "starting values must always be finite"

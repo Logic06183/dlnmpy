@@ -26,3 +26,28 @@ The optimiser is a generic quasi-Newton on the log smoothing parameters with num
 ## A practical note
 
 A `ps` basis on a predictor with sparse tails (temperature) leaves the outer coefficients weakly penalised and can produce implausible estimates at the extremes: on Chicago, `ps(df=9)` for temperature gives RR 5.4 at 33 C, identically in R and Python. A `cr` basis for the predictor (knots at quantiles) or restricting predictions to the 1st to 99th percentiles avoids this; the 2017 paper discusses additional penalties (`add_slag`) for the lag dimension.
+
+
+## Agreement with mgcv, and where it stops
+
+The penalty matrices from `cbpen`, their ranks, and the REML/ML criterion
+reproduce `mgcv` to machine precision. Given the same smoothing parameters,
+the fitted coefficients agree to about 1e-10 and the criterion to 1e-9.
+
+What differs is the *selection* of the smoothing parameters. `mgcv` uses a
+Newton method on analytic derivatives of the criterion; `fit_pgam` runs BFGS
+then Nelder-Mead on numerical ones. On well-conditioned models both reach the
+same optimum. On flat or near-singular ones they need not, and because the
+criterion is flat there, a large difference in the smoothing parameters can sit
+behind a tiny difference in the score: reproducing Gasparrini et al. (2017)
+found the selected smoothing parameters differing on two of three penalised
+models while the scores agreed to 1e-5 relative.
+
+Practical advice:
+
+- Check `.converged`. A fit that cannot produce finite estimates reports
+  `converged=False` and warns; it no longer returns NaN silently.
+- If you need `mgcv`'s exact answer, pass `sp=` explicitly. dlnmpy then
+  reproduces its coefficients and surface to ~1e-10.
+- If the fit is singular, the design is usually too rich for the data; reduce
+  `df` before reaching for a different optimiser.

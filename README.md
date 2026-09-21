@@ -22,7 +22,8 @@ Yes, to the precision below. Every number here comes from the test-suite or from
 | `dlnm()` one-call workflow (single and grouped series), `fit_glm` with an offset and aliased columns, `fit_clogit` with missing rows, `attrdl(group=)` | coefficients 1e-13, intervals 1e-11, AF 1e-15 | audit for 0.7.0, see `CHANGELOG.md` |
 | `attrdl.R`, `findmin.R` (attributable risk, MMT) | 1e-8 | `tests/test_attribution.py` |
 | `mixmeta` (REML, BLUPs, predictions, Q, I²), in the companion package [mixmetapy](https://github.com/Logic06183/mixmetapy) | 1e-5 on the validation fixture; a few times 1e-5 on `Psi` and BLUPs for other designs, where these flat likelihoods leave R's optimiser short of Python's | `tests/test_mixmeta.py` there; the two-stage pipeline in `tests/test_twostage.py` |
-| `mgcv::gam` penalised DLNMs (scores, smoothing parameters, coefficients) | 1e-5, 1e-4, 1e-4 | `tests/test_penalized.py` |
+| `mgcv::gam` penalised DLNMs: penalty matrices and the REML/ML criterion | machine precision; coefficients to 1e-10 **at matched smoothing parameters** | `tests/test_penalized.py` |
+| the same, end to end (dlnmpy choosing its own smoothing parameters) | scores to 1e-5 relative, but smoothing parameters and coefficients can differ materially — see the note below | `tests/test_penalized.py` |
 | Gasparrini et al. 2015 *Lancet*, England and Wales, 10 regions | identical MMT percentiles; AF to 4e-5 points | `examples/lancet_2015.py` |
 | Gasparrini and Armstrong 2013 *BMC MRM* | 67 of 68 intermediates to 1e-5..1e-15 | `examples/bmcmrm_2013.py` |
 
@@ -182,7 +183,11 @@ dl.attrdl(chicago.temp, cb, chicago.death, model, type="an", dir="forw", cen=res
 
 ## Penalised DLNMs without mgcv
 
-`fit_pgam` fits the penalised cross-basis models of Gasparrini et al. (2017) by penalised IRLS with smoothing parameters chosen by REML or ML (Wood 2011), reproducing `gam(..., paraPen=list(cb=cbPen(cb)), method="REML")`: scores to 1e-5, smoothing parameters to 1e-4, coefficients to 1e-4 or better against mgcv (`tests/test_penalized.py`). See `docs/penalized.md` and `examples/penalized_dlnm.py`.
+`fit_pgam` fits the penalised cross-basis models of Gasparrini et al. (2017) by penalised IRLS with smoothing parameters chosen by REML or ML (Wood 2011), reproducing `gam(..., paraPen=list(cb=cbPen(cb)), method="REML")`. See `docs/penalized.md` and `examples/penalized_dlnm.py`.
+
+**How closely it matches mgcv, stated carefully.** The penalty matrices, their ranks and the REML/ML criterion itself reproduce mgcv to machine precision, and *given the same smoothing parameters* the coefficients agree to about 1e-10 and the score to 1e-9. The difference is the outer search for the smoothing parameters: mgcv uses a Newton method on analytic derivatives, while `fit_pgam` runs a general-purpose optimiser on numerical ones. On well-conditioned models the two land in the same place, but on flat or near-singular problems they need not, and the smoothing parameters (and so the coefficients) can then differ by much more than the criterion does — a reproduction of Gasparrini et al. (2017) found the selected smoothing parameters differing on two of three penalised models while the scores agreed to 1e-5.
+
+In practice: `fit_pgam` is dependable for the fitting machinery and for the criterion, and it is the smoothing-parameter selection that is weaker than mgcv's. If you need mgcv's exact answer, pass `sp=` explicitly — dlnmpy then reproduces it to 1e-10. Check `.converged` on any penalised fit; a fit that cannot produce finite estimates now reports `converged=False` with a warning rather than silently returning NaN.
 
 ## Two-stage designs: multivariate meta-analysis
 
@@ -291,7 +296,7 @@ See `CONTRIBUTING.md`. The rule is numerical equivalence with R: changes to the 
 
 There is no paper for `dlnmpy`. Cite the methods papers below for the models, and the software as:
 
-> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.8.1). 2026. https://github.com/Logic06183/dlnmpy
+> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.8.2). 2026. https://github.com/Logic06183/dlnmpy
 
 A `CITATION.cff` is in the repository, so GitHub's "Cite this repository" button gives the same thing in BibTeX or APA. No DOI yet.
 

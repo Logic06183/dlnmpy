@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.8.2 (2026-09-21)
+
+Reproducing Gasparrini, Scheipl, Armstrong & Kenward (2017) *Biometrics*, the penalised DLNM paper, against mgcv. The penalty matrices, their ranks and the REML/ML criterion reproduce mgcv to machine precision, and at matched smoothing parameters the coefficients agree to 1e-10 — but the outer smoothing-parameter search is weaker than mgcv's Newton method, and it failed in three ways.
+
+**Fixed: a silent wrong answer**
+
+- `fit_pgam`/`fit_pglm` could return all-NaN coefficients, covariance and criterion while reporting `converged=True`, after running the smoothing parameters off to ~1e19. Nothing in the result flagged it, and the failure surfaced later as `crosspred`'s "coef/vcov not consistent with basis matrix", which points at the basis rather than the fit. A non-finite fit now reports `converged=False` and raises a `ConvergenceWarning` naming the smoothing parameters it reached.
+
+**Fixed: fits that could not start**
+
+- The starting smoothing parameters were derived from an *unpenalised* fit. When the penalty is the only thing making the model estimable — a rare-outcome Poisson against a wide cross-basis, which is the paper's second example — that fit diverges, every starting value was NaN, and the search aborted with a bare `LinAlgError: Eigenvalues did not converge`. Starting values now fall back to a lightly penalised fit and then to unweighted cross-products, so a finite start always exists.
+- A trial value of the smoothing parameters that makes the penalised information singular no longer aborts the search; it is treated as an infinitely bad point, so the optimiser steps back out (as the meta-analysis fitter already did). If the final fit is singular the error now says so and suggests reducing `df` or passing `sp`.
+
+**Changed**
+
+- The README no longer claims smoothing parameters and coefficients agree with mgcv to 1e-4 end to end. That holds at matched smoothing parameters; the selection itself can differ on flat or near-singular problems. The honest statement, and the advice to pass `sp=` when mgcv's exact answer is needed, are now in the README and `docs/penalized.md`.
+
 ## 0.8.1 (2026-09-21)
 
 Found by reproducing four more landmark papers against R. The DLNM core came through unchanged — the exposure-lag-response framework paper (Gasparrini 2014 *Stat Med*) agrees on 197 quantities to 1.8e-10, the attributable-risk paper (Gasparrini & Leone 2014) to 1e-13, the projections tutorial (Vicedo-Cabrera, Sera & Gasparrini 2019) to 4.3e-12 — but two defects in `fit_clogit`, which serves case-crossover and matched case-control designs, and two rough edges in porting the authors' own scripts.

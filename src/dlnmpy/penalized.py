@@ -28,6 +28,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import warnings
+
 import numpy as np
 import pandas as pd
 from scipy import optimize
@@ -178,6 +180,44 @@ def _columns_of(names: list, prefix: str) -> list:
 
 
 # ----------------------------------------------------------------------------
+class ConvergenceWarning(UserWarning):
+    """A penalised fit did not converge, or produced non-finite estimates."""
+
+
+def _start_rho(y, X, Slist, fam, w, off, p):
+    """Starting log smoothing parameters: scale each penalty so that ``sp * S``
+    has trace comparable to ``X'WX``.
+
+    The weights come from an unpenalised fit, which is cheap and usually fine.
+    But the penalty is sometimes the only thing making the model estimable --
+    a rare-outcome Poisson against a wide cross-basis, say -- and then the
+    unpenalised fit diverges and ``trace(X'WX)`` is not finite, which used to
+    leave every starting value NaN and abort the search with an opaque
+    ``LinAlgError``. Fall back to weights from a lightly penalised fit, and
+    then to the unit weights of the working response, so a start always exists.
+    """
+    def trace_from(S):
+        try:
+            _, W0, *_ = _pirls(y, X, S, fam, w, off)
+        except (np.linalg.LinAlgError, ValueError, FloatingPointError):
+            return None
+        t = float(np.trace((X.T * W0) @ X))
+        return t if np.isfinite(t) and t > 0 else None
+
+    total = sum(Slist)
+    tr = trace_from(np.zeros((p, p)))
+    if tr is None:                                  # unpenalised fit diverged
+        for mult in (1.0, 1e2, 1e4, 1e6):
+            tr = trace_from(mult * total)
+            if tr is not None:
+                break
+    if tr is None:                                  # last resort: unweighted
+        tr = float(np.trace(X.T @ X))
+    if not np.isfinite(tr) or tr <= 0:
+        tr = float(X.shape[0])
+    return np.array([np.log(tr / max(np.trace(Sk), 1e-12)) for Sk in Slist])
+
+
 def _pirls(y, X, S, fam, w, offset, beta0=None, maxit=100, tol=1e-10):
     """Penalised IRLS for a fixed total penalty ``S``. Returns beta, W, dev."""
     n, p = X.shape
@@ -315,21 +355,26 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
         crit, out = fit_at(np.array([]))
         rho, converged = np.array([]), True
     else:
-        # starting values: scale each penalty so that sp*S has trace comparable to X'WX
-        _, W0, *_ = _pirls(y, X, np.zeros((p, p)), fam, w, off)
-        XtWX = (X.T * W0) @ X
-        rho0 = np.array([np.log(np.trace(XtWX) / max(np.trace(Sk), 1e-12)) for Sk in Slist])
-        if fam.scale_known:
-            def obj(r):
-                v, _ = fit_at(r)
+        rho0 = _start_rho(y, X, Slist, fam, w, off, p)
+        # A trial value of the smoothing parameters can make the penalised
+        # information singular, which used to abort the whole search with
+        # LinAlgError. Treat it as an infinitely bad point instead, so the
+        # optimiser steps back out of that region (as the mixmeta fitter does).
+        def _guard(f):
+            def wrapped(r):
+                try:
+                    v, _ = f(r)
+                except (np.linalg.LinAlgError, FloatingPointError, ValueError):
+                    return 1e100
                 return v if np.isfinite(v) else 1e100
+            return wrapped
+
+        if fam.scale_known:
+            obj = _guard(lambda r: fit_at(r))
             x0 = rho0
         else:
             phi0 = fit_at(rho0)[1]["phi"]
-
-            def obj(r):
-                v, _ = fit_at(r[:-1], r[-1])
-                return v if np.isfinite(v) else 1e100
+            obj = _guard(lambda r: fit_at(r[:-1], r[-1]))
             x0 = np.r_[rho0, np.log(phi0)]
         res = optimize.minimize(obj, x0, method="BFGS", options={"gtol": 1e-6, "maxiter": maxiter, "eps": 1e-5})
         res = optimize.minimize(obj, res.x, method="Nelder-Mead",
@@ -341,7 +386,13 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
         converged = bool(np.isfinite(res.fun) and (res.success or np.max(np.abs(grad)) < 1e-6 * (1 + abs(res.fun))))
         if fam.scale_known:
             rho = res.x
-            crit, out = fit_at(rho)
+            try:
+                crit, out = fit_at(rho)
+            except np.linalg.LinAlgError as e:
+                raise np.linalg.LinAlgError(
+                    "the penalised fit is singular at the selected smoothing parameters "
+                    f"({np.array2string(np.exp(rho), precision=3)}). The design is probably too "
+                    "rich for the data; reduce 'df', or pass 'sp' explicitly.") from e
         else:
             rho = res.x[:-1]
             crit, out = fit_at(rho, res.x[-1])
@@ -363,8 +414,22 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
         reml_scale, phi = phi, scale_est
     else:
         reml_scale = phi
+    vcov = Ainv * phi
+    # A fit that returned NaN is not a converged fit. The smoothing-parameter
+    # search can run sp off to ~1e19 and come back with nothing finite; saying
+    # converged=True there is a silent wrong answer, and the failure would
+    # otherwise surface much later as "coef/vcov not consistent with basis
+    # matrix" from crosspred, which points at the wrong thing.
+    if not (np.all(np.isfinite(beta)) and np.all(np.isfinite(vcov)) and np.isfinite(crit)):
+        converged = False
+        warnings.warn(
+            "penalised fit did not produce finite estimates (smoothing parameters "
+            f"reached {np.array2string(np.exp(rho), precision=3)}); coefficients, "
+            "covariance or the criterion are NaN and 'converged' is False. Supply "
+            "'sp' explicitly, or rescale the design.",
+            ConvergenceWarning, stacklevel=2)
     return PenalizedGLMResults(
-        params=pd.Series(beta, index=exog_names), vcov=Ainv * phi, sp=np.exp(rho), scale=phi, reml_scale=reml_scale,
+        params=pd.Series(beta, index=exog_names), vcov=vcov, sp=np.exp(rho), scale=phi, reml_scale=reml_scale,
         edf=edf, deviance=out["dev"], reml=float(crit), method=method, family=fam.name, link=fam.link,
         converged=converged, fitted_values=out["mu"], linear_predictor=out["eta"], nobs=n,
         penalty_names=list(penalty_names), exog_names=list(exog_names), endog=y, exog=X)
