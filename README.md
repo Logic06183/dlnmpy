@@ -1,6 +1,5 @@
 # dlnmpy
 
-[![tests](https://github.com/Logic06183/dlnmpy/actions/workflows/ci.yml/badge.svg)](https://github.com/Logic06183/dlnmpy/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/dlnmpy.svg)](https://pypi.org/project/dlnmpy/)
 ![python](https://img.shields.io/badge/python-3.9%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
 ![licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-green)
@@ -281,6 +280,8 @@ examples/            vignette reproduction
 ## Status
 
 Alpha, on PyPI. The numerical core has been stable since 0.4 and is pinned by the fixtures and by three audits against R (0.5.0, 0.6.0, 0.7.0); the API of `dlnm()` and the plotting functions is newer and may still change. Known gaps are in the roadmap above; the penalised fitter uses numerical derivatives and is slower than mgcv.
+
+There is no CI badge: the test suite is run locally against every supported Python version before each release (the checks are in `CONTRIBUTING.md`, and the workflow files are in the repository for whenever hosted CI is available again).
 
 ## Contributing
 
