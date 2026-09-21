@@ -1,6 +1,7 @@
 # dlnmpy
 
 [![PyPI](https://img.shields.io/pypi/v/dlnmpy.svg)](https://pypi.org/project/dlnmpy/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22876735.svg)](https://doi.org/10.5281/zenodo.22876735)
 ![python](https://img.shields.io/badge/python-3.9%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
 ![licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-green)
 
@@ -296,9 +297,9 @@ See `CONTRIBUTING.md`. The rule is numerical equivalence with R: changes to the 
 
 There is no paper for `dlnmpy`. Cite the methods papers below for the models, and the software as:
 
-> Parker C. dlnmpy: distributed lag non-linear models in Python (version 0.8.3). 2026. https://github.com/Logic06183/dlnmpy
+> Parker C. dlnmpy: distributed lag non-linear models in Python. 2026. doi:10.5281/zenodo.22876735
 
-A `CITATION.cff` is in the repository, so GitHub's "Cite this repository" button gives the same thing in BibTeX or APA. No DOI yet.
+That DOI always resolves to the latest release; each release also has its own, listed on the [Zenodo record](https://doi.org/10.5281/zenodo.22876735), if you need to pin the exact version you ran. A `CITATION.cff` is in the repository, so GitHub's "Cite this repository" button gives the same thing in BibTeX or APA.
 
 ## Prior work
 

@@ -6,6 +6,7 @@ version: 0.8.3
 date-released: 2026-09-21
 license: GPL-2.0-or-later
 repository-code: "https://github.com/Logic06183/dlnmpy"
+doi: "10.5281/zenodo.22876735"
 authors:
   - family-names: Parker
     given-names: Craig
