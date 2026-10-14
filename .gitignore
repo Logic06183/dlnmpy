@@ -11,3 +11,16 @@ examples/figures/*.png
 examples/regEngWales.csv
 !examples/figures/overall_risk_colour.png
 !examples/figures/attributable_colour.png
+examples/london.csv
+examples/uminers.csv
+.claude/
+paper/manuscript.html
+paper/manuscript.pdf
+paper/manuscript.docx
+paper/manuscript.tex
+paper/manuscript.aux
+paper/manuscript.log
+paper/manuscript_files/
+paper/*.quarto_ipynb
+examples/vicedo2019_data/
+paper/REVIEW-RECORD.md

@@ -25,8 +25,12 @@ Yes, to the precision below. Every number here comes from the test-suite or from
 | `mixmeta` (REML, BLUPs, predictions, Q, I²), in the companion package [mixmetapy](https://github.com/Logic06183/mixmetapy) | 1e-5 on the validation fixture; a few times 1e-5 on `Psi` and BLUPs for other designs, where these flat likelihoods leave R's optimiser short of Python's | `tests/test_mixmeta.py` there; the two-stage pipeline in `tests/test_twostage.py` |
 | `mgcv::gam` penalised DLNMs: penalty matrices and the REML/ML criterion | machine precision; coefficients to 1e-10 **at matched smoothing parameters** | `tests/test_penalized.py` |
 | the same, end to end (dlnmpy choosing its own smoothing parameters) | scores to 1e-5 relative, but smoothing parameters and coefficients can differ materially — see the note below | `tests/test_penalized.py` |
-| Gasparrini et al. 2015 *Lancet*, England and Wales, 10 regions | identical MMT percentiles; AF to 4e-5 points | `examples/lancet_2015.py` |
-| Gasparrini and Armstrong 2013 *BMC MRM* | 67 of 68 intermediates to 1e-5..1e-15 | `examples/bmcmrm_2013.py` |
+| Gasparrini et al. 2015 *Lancet*, England and Wales, 10 regions | 2,545 comparisons, 0 failures; identical MMT percentiles; AF to 4e-5 points | `examples/lancet_2015.py`, `examples/lancet2015_vs_r.py` |
+| Gasparrini and Armstrong 2013 *BMC MRM* | 22,771 intermediates, 0 failures; reductions to 1e-13 | `examples/bmcmrm_2013.py`, `examples/bmcmrm2013_vs_r.py` |
+| Gasparrini 2014 *Stat Med* (miners cohort, Cox) | 102,224 comparisons, 0 failures | `examples/statmed2014.py` |
+| Gasparrini and Leone 2014 *BMC MRM* (attributable risk) | 22,690 comparisons, 0 failures; AF to 1e-13 | `examples/leone2014.py` |
+| Vicedo-Cabrera et al. 2019 *Epidemiology* (projections) | 11,060 comparisons, 0 failures; AF to 1e-12 | `examples/vicedo2019.py` |
+| Gasparrini et al. 2017 *Biometrics* (penalised) | 66 comparisons at mgcv's smoothing parameters, 0 failures | `examples/biomet2017.py` |
 
 If you find a number that differs from R, open an issue with the R code and the Python code side by side. That is the most useful contribution this project can get.
 
@@ -236,7 +240,7 @@ The minimum-mortality percentile matches as an exact integer in all 10 regions; 
 `tools/make_fixtures.R` runs the R package on the vignette examples and writes every intermediate object to `tests/fixtures/` as CSV and JSON: 32 basis-function specifications (with and without values outside the fitting range), 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The Python test-suite compares against these numbers with absolute tolerances of 1e-10 to 1e-12.
 
 ```
-pytest            # 132 tests; install the [twostage] extra or 2 of them skip
+pytest            # 142 tests; install the [twostage] extra or 2 of them skip
 ```
 
 A second, independent check lives in `tools/side_by_side.R` / `tools/side_by_side.py`: five complete analyses are run end to end in both languages, including the model fit, on data and specifications not used for the unit-test fixtures (the `drug` trial with OLS on exposure histories, the `nested` case-control study with conditional logistic regression, a logistic and a quasi-Poisson Chicago model with threshold, polynomial, strata and integer bases, 80% and 90% intervals, exposure-history matrices passed to `at`, and a four-city simulation with known truth). All 102 quantities compared agree to better than 1e-8; most to 1e-12. The report is printed by `python tools/side_by_side.py` and the test-suite runs it too.
@@ -285,7 +289,7 @@ examples/            vignette reproduction
 
 ## Status
 
-Alpha, on PyPI. The numerical core has been stable since 0.4 and is pinned by the fixtures and by three audits against R (0.5.0, 0.6.0, 0.7.0); the API of `dlnm()` and the plotting functions is newer and may still change. Known gaps are in the roadmap above; the penalised fitter uses numerical derivatives and is slower than mgcv.
+Alpha, on PyPI. The numerical results are pinned by the fixtures, by three audits against R (0.5.0, 0.6.0, 0.7.0) and by six published analyses rerun from their authors' code (see `docs/validation.md`; every defect found is listed in `docs/defects.md`); the API of `dlnm()` and the plotting functions is newer and may still change. Known gaps are in the roadmap above; the penalised fitter uses numerical derivatives and is slower than mgcv.
 
 There is no CI badge: the test suite is run locally against every supported Python version before each release (the checks are in `CONTRIBUTING.md`, and the workflow files are in the repository for whenever hosted CI is available again).
 

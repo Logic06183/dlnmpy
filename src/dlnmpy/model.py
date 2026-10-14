@@ -279,6 +279,7 @@ def fit_clogit(y, X, groups, **kwargs):
         # a diverging Newton step overflows exp(X @ beta) and floods the log
         warnings.simplefilter("ignore", RuntimeWarning)
         res = model.fit(**kwargs)
+    names = getattr(res.params, "index", None)    # keep the column names
     b = np.asarray(res.params, dtype=float)
     if not np.all(np.isfinite(b)):
         # statsmodels' Newton takes the full step with no step-halving, so a
@@ -289,7 +290,10 @@ def fit_clogit(y, X, groups, **kwargs):
         b = _newton_clogit(model, b.size)
         inner = getattr(res, "_results", res)
         inner.params = b
-        res.params = b
+        # keep the names, so that crosspred(cb, res, name=...) finds the
+        # cross-basis columns on this path as on the ordinary one
+        import pandas as pd
+        res.params = pd.Series(b, index=names) if names is not None else b
     cov = _clogit_cov(model.score, b)
     inner = getattr(res, "_results", res)  # results may be wrapped
     inner.normalized_cov_params = cov

@@ -55,6 +55,8 @@ _CANONICAL = frozenset({
 # their usual spelling of Boundary.knots. No other argument of any basis function
 # begins with "b", so a prefix of "boundary.knots" is unambiguous here too.
 _BOUNDARY = "boundaryknots"
+# the same holds for `intercept`, which the authors abbreviate to `int = TRUE`
+_INTERCEPT = "intercept"
 
 
 def _match_arg(name: str) -> str:
@@ -64,6 +66,8 @@ def _match_arg(name: str) -> str:
     squashed = name.replace(".", "").replace("_", "").lower()
     if squashed and _BOUNDARY.startswith(squashed) and name not in _CANONICAL:
         return "boundary_knots"
+    if squashed and _INTERCEPT.startswith(squashed) and name not in _CANONICAL:
+        return "intercept"
     return name
 
 
@@ -72,7 +76,8 @@ def normalise_args(args: dict | None) -> dict:
     Python spellings used by :mod:`dlnmpy.basis`.
 
     Exact R spellings (``Boundary.knots``, ``thr.value``) are accepted, and so is
-    any prefix of ``Boundary.knots`` (``Bound=``, as R's partial matching allows).
+    any prefix of ``Boundary.knots`` or ``intercept`` (``Bound=``, ``int=``, as R's
+    partial matching allows).
     """
     out: dict[str, Any] = {}
     for k, v in (args or {}).items():

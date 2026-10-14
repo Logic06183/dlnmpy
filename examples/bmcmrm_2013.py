@@ -112,14 +112,14 @@ def main() -> None:
         return float((Q - df) / Q * 100)
 
     print(f"\nEngland & Wales, {len(regions)} regions, {d.year.min()}-{d.year.max()}")
-    print(f"  minimum-mortality temperature        {mmt:.1f} C            [paper: 17.1]")
+    print(f"  minimum-mortality temperature        {mmt:.1f} C            [R script: 17.1]")
     for t, ref in ((22, "1.101 (1.079-1.124)"), (0, "1.309 (1.245-1.376)")):
         i = at(t)
         print(f"  pooled RR at {t:2d} C                    "
               f"{cp.allRRfit[i]:.3f} ({cp.allRRlow[i]:.3f}-{cp.allRRhigh[i]:.3f})"
-              f"   [paper: {ref}]")
+              f"   [R script: {ref}]")
     print(f"  I2  overall {i2(pooled['all']):.1f}%   at 22 C {i2(pooled['hot']):.1f}%"
-          f"   at 0 C {i2(pooled['cold']):.1f}%      [paper: 63.8 / 16.4 / 63.5]")
+          f"   at 0 C {i2(pooled['cold']):.1f}%      [R script: 63.8 / 16.4 / 63.5]")
     print("\n  QAIC, summed over regions (lower is better):")
     for key, label in (("m1", "B-spline of lag 0-21"), ("m2", "constant of lag 0-3"),
                        ("m3", "constant of lag 0-21")):

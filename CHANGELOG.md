@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.4 (2026-10-13)
+
+Six published analyses are now rerun from their authors' own code, with the R side committed. Four of them (Gasparrini 2014 *Stat Med*, Gasparrini & Leone 2014 *BMC MRM*, Vicedo-Cabrera, Sera & Gasparrini 2019 *Epidemiology*, Gasparrini et al. 2017 *Biometrics*) were reproduced for 0.8.1 and 0.8.2 without the scripts being committed. They are now `examples/statmed2014.py`, `leone2014.py`, `vicedo2019.py` and `biomet2017.py`, each with a `tools/reproduce_*.R` that pins the authors' repository and writes `tests/reference/*.json`. The two earlier reproductions gained stage-by-stage comparisons with R, `examples/lancet2015_vs_r.py` and `examples/bmcmrm2013_vs_r.py`. 161,356 comparisons with R in all, no failures. `docs/validation.md` has the results and `docs/defects.md` lists every defect found since 0.4.1, with how it was found and the test that guards it. `paper/` holds the manuscript, an executable Quarto document that reruns all of this.
+
+**Fixed**
+
+- `simulate_coef(normals=Z)` was documented to reproduce R's draws from R's normal deviates. It does not in general: an eigenvector is defined up to its sign and numpy's and R's eigenvalue routines choose differently (8 of 20 on the London model of Gasparrini & Leone 2014, moving the attributable-number intervals by up to 1.2%). `simulate_coef` now takes `eigvecs=` (R's `eigen(vcov)$vectors`), which reproduces R's draws exactly. Without it the sign of each eigenvector is now fixed (largest entry positive), so seeded draws are the same on every platform. **Seeded results change** relative to 0.8.3 for `attrdl(sim=True)`, `findmin`/`mmt`, `attr_table`, `bootstrap` and the `DLNM` methods that use them: statistically equivalent, not identical.
+- `fit_clogit` lost the parameter names on its step-halving path (taken when statsmodels' Newton diverges), so `crosspred(cb, res, name=...)` raised "model parameters are not named".
+- `int=`, R's partial match of `intercept` used in the authors' scripts, was rejected. It is accepted wherever `Bound=` is.
+
+**Corrections to earlier entries**
+
+- 0.5.0: the QAIC defect was fixed in 0.4.1, not 0.5.0. Gasparrini & Armstrong (2013) compare their three lag models graphically and do not use QAIC; the authors' script computes it, and the pre-0.4.1 criterion would have ranked the three in the wrong order.
+- 0.6.0 and 0.7.0 said every defect was in the Python-only layers. Several were in ported functions (`qtest`; `attrdl`, `crossreduce`, `cr`/`cbpen`, `poly`, `crossbasis(group=)`, `MixMeta` in 0.7.0). See `docs/defects.md`.
+- 0.6.1: the `__version__` fix first shipped in 0.7.0; the 0.6.1 wheel still reported 0.6.0.
+- 0.8.0 was released (tag `v0.8.0`), not "unreleased".
+- 0.8.1: three papers, not four (the fourth, *Biometrics* 2017, is 0.8.2). The "197 quantities to 1.8e-10" figure for the *Stat Med* paper cannot be traced; see `docs/validation.md` for what the committed script shows. `Bound=` being rejected was a defect, not a rough edge.
+
 ## 0.8.3 (2026-09-21)
 
 Citation metadata only; no change to any numerical result.

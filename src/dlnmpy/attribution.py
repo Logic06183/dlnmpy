@@ -38,23 +38,34 @@ __all__ = ["attrdl", "findmin", "mmt", "attr_table", "simulate_coef", "MMTResult
 
 
 # ----------------------------------------------------------------------------
-def simulate_coef(coef, vcov, nsim: int = 5000, seed=None, normals=None) -> np.ndarray:
+def simulate_coef(coef, vcov, nsim: int = 5000, seed=None, normals=None,
+                  eigvecs=None) -> np.ndarray:
     """Draw ``nsim`` coefficient vectors from N(coef, vcov).
 
-    Uses the eigen-decomposition square root of ``vcov`` exactly as the R
-    reference code does, so that a matrix of standard normals produced in R
-    gives identical draws. Returns an array of shape ``(k, nsim)``.
+    Uses the eigen-decomposition square root of ``vcov``, as ``MASS::mvrnorm``
+    does in the R reference code. Returns an array of shape ``(k, nsim)``.
 
     Parameters
     ----------
     normals : (nsim, k) array, optional
-        Standard normal deviates to use instead of drawing new ones, so that a
-        projection or attribution loop can be reproduced exactly -- pass R's own
-        draws (``matrix(rnorm(nsim * k), nsim)``) to compare the two languages
-        without Monte Carlo noise. ``nsim`` and ``seed`` are then ignored.
+        Standard normal deviates to use instead of drawing new ones (``nsim``
+        and ``seed`` are then ignored).
+    eigvecs : (k, k) array, optional
+        The eigenvectors to use, columns ordered by decreasing eigenvalue. Pass
+        R's ``eigen(vcov, symmetric = TRUE)$vectors`` together with R's normal
+        deviates to reproduce R's draws exactly.
 
     Notes
     -----
+    An eigenvector is defined only up to its sign, and different LAPACK
+    routines and builds choose differently. The same normal deviates
+    therefore give different draws unless the eigenvectors agree too:
+    ``normals=`` alone does **not** reproduce R's draws in general, and needs
+    ``eigvecs=``. Without ``eigvecs``, the sign of each eigenvector is fixed so
+    that its largest entry is positive, which makes a seeded run give the same
+    draws on any platform. To replay R's simulated coefficients directly,
+    ``attrdl(..., coefsim=)`` also takes them as they are.
+
     The result is ``(k, nsim)``: one *column* per simulation. ``MASS::mvrnorm``
     returns the transpose, so a loop written as R's ``coefsim[s, ]`` becomes
     ``simulate_coef(...)[:, s]``.
@@ -67,17 +78,25 @@ def simulate_coef(coef, vcov, nsim: int = 5000, seed=None, normals=None) -> np.n
             raise ValueError(f"'normals' must have shape (nsim, {coef.size}), got {Z.shape}")
     else:
         Z = np.random.default_rng(seed).standard_normal((nsim, coef.size))
-    return _coefsim_from_normals(coef, vcov, Z)
+    return _coefsim_from_normals(coef, vcov, Z, eigvecs)
 
 
-def _coefsim_from_normals(coef, vcov, Z) -> np.ndarray:
+def _coefsim_from_normals(coef, vcov, Z, eigvecs=None) -> np.ndarray:
     """``coef + V^{1/2} Z'`` with the eigen square root (R: eigen$vectors %*%
     diag(sqrt(values)) %*% t(X)). ``Z`` is (nsim, k)."""
-    w, U = np.linalg.eigh(vcov)
-    # R's eigen() returns values in decreasing order; match that ordering so
-    # that a given normal matrix maps to the same draws
-    order = np.argsort(w)[::-1]
-    w, U = w[order], U[:, order]
+    if eigvecs is not None:
+        U = np.asarray(eigvecs, dtype=float)
+        if U.shape != vcov.shape:
+            raise ValueError(f"'eigvecs' must have shape {vcov.shape}, got {U.shape}")
+        w = np.einsum("ij,jk,ki->i", U.T, vcov, U)        # eigenvalues in U's order
+    else:
+        w, U = np.linalg.eigh(vcov)
+        # R's eigen() returns values in decreasing order; match that ordering
+        order = np.argsort(w)[::-1]
+        w, U = w[order], U[:, order]
+        # fix each sign so the draws do not depend on the LAPACK build
+        big = np.argmax(np.abs(U), axis=0)
+        U = U * np.where(U[big, np.arange(U.shape[1])] < 0, -1.0, 1.0)
     w = np.maximum(w, 0)
     return coef[:, None] + U @ (np.sqrt(w)[:, None] * Z.T)
 
