@@ -1,4 +1,9 @@
-"""Simulation-based (parametric bootstrap) uncertainty and model selection.
+"""Simulation-based uncertainty and model selection.
+
+The helpers named ``bootstrap`` and ``bootstrap_ci`` keep their names for
+compatibility, but they do not resample the data or refit the model: they
+are Monte Carlo simulation from the estimated sampling distribution of the
+coefficients, the empirical intervals of Gasparrini & Leone (2014).
 
 The delta-method intervals in :class:`~dlnmpy.predict.CrossPred` are exact
 on the scale of the linear predictor and adequate for relative risks. For

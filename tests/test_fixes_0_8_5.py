@@ -146,3 +146,43 @@ def test_fit_pgam_scale_does_not_count_rows_with_zero_prior_weight():
     np.testing.assert_allclose(a.scale, b.scale, rtol=1e-8)
     np.testing.assert_allclose(np.asarray(a.bse), np.asarray(b.bse), rtol=1e-6)
     assert a.nobs == b.nobs
+
+
+def _three_cities(n=1500, seed=11):
+    import pandas as pd
+    rng = np.random.default_rng(seed)
+    frames = []
+    for c in range(3):
+        t = np.arange(n)
+        temp = 15 + 8 * np.sin(2 * np.pi * t / 365.25) + rng.normal(0, 3, n)
+        mu = np.exp(3 + 0.002 * (temp - 18) ** 2 + 0.1 * np.sin(2 * np.pi * t / 365.25))
+        frames.append(pd.DataFrame({"city": c, "time": t, "temp": temp, "deaths": rng.poisson(mu)}))
+    return pd.concat(frames)                                # index 0..n-1 repeated per city
+
+
+def test_dlnm_with_a_repeated_index_fits_each_row_once():
+    # data.join(design) on a repeated index paired every row sharing a label:
+    # three times the rows, SEs 1.24 times too small, RR 1.77 instead of 2.05
+    pytest.importorskip("statsmodels")
+    d = _three_cities()
+    assert not d.index.is_unique
+    kw = dict(outcome="deaths", exposure="temp", lag=5, time="time", df_per_year=4)
+    dup = dl.dlnm(d, group="city", **kw)
+    ok = dl.dlnm(d.reset_index(drop=True), group="city", **kw)
+    assert dup.model.nobs == ok.model.nobs == len(d) - 3 * 5
+    np.testing.assert_allclose(np.asarray(dup.model.params), np.asarray(ok.model.params), rtol=1e-10)
+    one = d[d.city == 0]
+    single = __import__("pandas").concat([one, one.assign(time=one.time + len(one))])
+    a = dl.dlnm(single, **kw)
+    b = dl.dlnm(single.reset_index(drop=True), **kw)
+    assert a.model.nobs == b.model.nobs == len(single) - 5
+    with pytest.warns(UserWarning, match="repeated index"):
+        dl.design_matrix(d, ("cb", dl.crossbasis(d.temp, lag=2)))
+
+
+def test_dlnm_warns_when_rows_are_not_consecutive_days():
+    pytest.importorskip("statsmodels")
+    d = _three_cities().reset_index(drop=True)
+    summer = d[(d.city == 0) & ((d.time % 365) < 180)]           # gaps between seasons
+    with pytest.warns(UserWarning, match="not equally spaced"):
+        dl.dlnm(summer, outcome="deaths", exposure="temp", lag=3, time="time", df_per_year=4)

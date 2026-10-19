@@ -120,6 +120,10 @@ def design_matrix(data, *terms, intercept: bool = True):
     ``to_dataframe`` names), tuples ``(name, obj)`` or DataFrames.
     """
     import pandas as pd
+    if not data.index.is_unique:
+        warnings.warn("'data' has a repeated index: the design copies it, so data.join(design) would "
+                      "pair every row sharing a label and multiply the data. Use "
+                      "data.reset_index(drop=True) first.", UserWarning, stacklevel=2)
     parts = []
     if intercept:
         parts.append(pd.DataFrame({"Intercept": np.ones(len(data))}, index=data.index))
