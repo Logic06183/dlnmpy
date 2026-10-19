@@ -11,7 +11,7 @@ author:
         country: South Africa
 article-type: software
 abstract: |
-  Distributed lag non-linear models (DLNMs) are the standard framework for exposure-lag-response associations in environmental epidemiology, above all in studies of temperature and mortality. The reference implementation is the R package dlnm, and the quantities applied papers report around it (the minimum mortality temperature, attributable fractions and pooled multi-location estimates) come from further R packages and published R scripts. Researchers who work in Python, including many who handle gridded climate and remote-sensing data, have had no implementation that is both independent of R and checked against it. This paper presents dlnmpy, a Python implementation of the DLNM framework and of the workflow around it. It ports the functions of dlnm, including R's own spline, pretty() and quantile() routines so that default knots and prediction grids match, and adds the attributable-risk and minimum-mortality-temperature functions, penalised DLNMs and a one-call workflow. Multivariate meta-analysis, a separate package in R, is the companion package mixmetapy. Agreement with R is checked in three layers: fixtures generated in R, five complete analyses run side by side (98 quantities compared with R, all within a relative tolerance of 1e-8), and the authors' own public code for six published analyses translated into Python and rerun. All six translations are rerun in this paper's own source. For the ten regions of England and Wales, the Gasparrini et al. (2015) code gives a median minimum mortality percentile of 89.5 and a temperature-attributable fraction of 8.94%, and dlnmpy gives the same. The Gasparrini and Armstrong (2013) code gives a minimum mortality temperature of 17.1 °C and pooled relative risks of 1.101 at 22 °C and 1.309 at 0 °C, and dlnmpy gives the same. The other four (a cohort analysis with Cox models, attributable risk, climate projections and penalised DLNMs) pass all 136,040 comparisons with the authors' R code at stated tolerances. The comparisons found 41 defects between releases 0.4.1 and 0.8.4, 28 of which gave wrong results without an error, including a quasi-likelihood information criterion that ranked the three lag specifications of the 2013 analysis in the wrong order. Each is listed in a defect ledger with how it was found and the test that guards it. The manuscript is an executable Quarto document. The worked examples and the six reproductions are rerun whenever it is rendered, against R results stored in the repository.
+  Distributed lag non-linear models (DLNMs) are the standard framework for exposure-lag-response associations in environmental epidemiology, especially temperature and mortality. The reference implementation is the R package dlnm, and the minimum mortality temperature, attributable fractions and pooled multi-location estimates that applied papers report come from further R packages and published R scripts. This paper presents dlnmpy, a Python implementation of the DLNM framework and its workflow that needs no R at run time. It ports dlnm, including R's spline, pretty() and quantile() routines so that default knots and prediction grids match, and adds attributable risk, the minimum mortality temperature, penalised DLNMs and a one-call workflow. Multivariate meta-analysis is in the companion package mixmetapy. Agreement with R is checked in three layers: fixtures generated in R, five analyses run in both languages (98 comparisons within a relative tolerance of 1e-8), and six published analyses whose authors' R code was translated into Python and rerun. For England and Wales, the code of Gasparrini et al. (2015) gives a median minimum mortality percentile of 89.5 and an attributable fraction of 8.94%, and that of Gasparrini and Armstrong (2013) gives pooled relative risks of 1.101 at 22 °C and 1.309 at 0 °C. dlnmpy gives the same values, and the six translations agree with the authors' code in all 161,356 comparisons at stated tolerances. The comparisons found 41 defects between releases 0.4.1 and 0.8.4, 28 of them silent, each listed with the test that guards it. The manuscript is executable and reruns every comparison.
 keywords: [distributed lag non-linear models, Python, reproducibility, temperature and mortality, software validation, environmental epidemiology]
 bibliography: references.bib
 quarto-required: ">=1.6.0"
@@ -37,7 +37,8 @@ jupyter: python3
 ```{python}
 #| label: setup
 #| echo: false
-import hashlib, subprocess, sys, urllib.request, warnings
+import hashlib, json, re, subprocess, sys, time, urllib.request, warnings
+from importlib import metadata
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -48,6 +49,7 @@ import mixmetapy
 warnings.simplefilter("ignore")
 REPO = Path.cwd().parent            # Quarto executes from paper/
 EXAMPLES = REPO / "examples"
+REFERENCE = REPO / "tests" / "reference"
 
 # England and Wales data used by both reproductions, pinned to a commit of the
 # authors' repository and checked against a known SHA-256.
@@ -59,11 +61,24 @@ if not EW_FILE.exists():
     EW_FILE.write_bytes(urllib.request.urlopen(EW_URL).read())
 assert hashlib.sha256(EW_FILE.read_bytes()).hexdigest() == EW_SHA256, "England and Wales data changed"
 
+# Every comparison script ends with "<name>: N comparisons with R, max abs
+# difference D, F failures". RUNS keeps those numbers and the wall-clock time, so
+# that the counts quoted in the text are the ones this render produced.
+RUNS = {}
+SUMMARY = re.compile(r"^(\w+): (\d+) comparisons with R, max abs difference ([-+.e\d]+), (\d+) failures$")
+
 def run_example(script):
     """Run one of the repository's reproduction scripts and return its printed output."""
+    t0 = time.perf_counter()
     out = subprocess.run([sys.executable, script], cwd=EXAMPLES,
-                         capture_output=True, text=True, check=True)
-    return out.stdout.strip()
+                         capture_output=True, text=True, check=True).stdout.strip()
+    m = SUMMARY.match(out.splitlines()[-1])
+    RUNS[script] = {"seconds": time.perf_counter() - t0, "out": out,
+                    **({"n": int(m[2]), "maxabs": float(m[3]), "fail": int(m[4])} if m else {})}
+    return out
+
+def fmt(n):
+    return f"{n:,}"
 
 def md(df):
     return Markdown(df.to_markdown(index=False, disable_numparse=True))
@@ -79,9 +94,9 @@ All of it is in R. Climate and exposure data increasingly arrive as gridded fiel
 
 This paper presents dlnmpy [@parker2026dlnmpy], a Python package that implements the DLNM framework and the workflow built on it, and describes how it was checked. The package has three aims. The first is fidelity to R: each ported function reproduces its R counterpart, including R's spline, `pretty()` and `quantile()` routines, so the default knots and prediction grids match. The second is scope, so that a temperature-mortality analysis runs from the raw series to the usual figures without leaving Python. The third is that the checks should be rerunnable. The R-generated fixtures ship with the package, the mathematics is written down as a language-neutral specification, and published analyses are rerun from their authors' code.
 
-The central claim of a port is numerical equivalence with the original, and the evidence for it is only as good as the reader's ability to rerun it. This manuscript is therefore written as an executable document. The worked examples in Section 4 and the two published reproductions in Section 5 are rerun every time it is rendered.
+The central claim of a port is numerical equivalence with the original, and the evidence for it is only as good as the reader's ability to rerun it. This manuscript is therefore written as an executable document. The worked examples in Section 4 and the six published reproductions in Section 5 are rerun every time it is rendered.
 
-Section 2 summarises the framework. Section 3 describes the design of the package, Section 4 illustrates it, and Section 5 reports the checks against R and what they found. Section 6 covers use with gridded and spatial data, Section 7 relates dlnmpy to other software, and Section 8 sets out its limitations.
+Section 2 summarises the framework. Section 3 describes the design of the package, Section 4 illustrates it, and Section 5 reports the checks against R and what they found. Section 6 covers use with gridded and spatial data, Section 7 relates dlnmpy to other software, Section 8 sets out its limitations, and Section 9 describes how to reproduce the paper.
 
 # The framework and the workflow
 
@@ -135,7 +150,7 @@ Attributable numbers and fractions are computed from the fitted exposure-respons
 | `mgcv::gam(paraPen=)` | `fit_pgam`, `fit_pglm` | penalised IRLS with REML or ML smoothing |
 | `mgcv::gam` with `s(x, lag, bs = "cb")` | not ported | `crosspred` on these internal smooths is not implemented |
 | `attrdl.R`, `findmin.R` | `attrdl`, `findmin`, `mmt`, `attr_table` | attribution module |
-| `mixmeta` | `mixmetapy.mixmeta` | companion package, single-level models; `stack_reduced` and `predict_reduced` in dlnmpy |
+| `mixmeta` | `mixmetapy.mixmeta` | companion package, single-level models, with `stack_reduced` and `predict_reduced` in dlnmpy |
 | `plot.crosspred`, `plot.crossreduce` | `.plot()` methods | matplotlib |
 | `chicagoNMMAPS`, `drug`, `nested` | `dlnmpy.datasets` | |
 
@@ -153,13 +168,19 @@ Three behaviours inherited from R need care in use. Predictions are relative to 
 
 ## Dependencies and distribution
 
-dlnmpy requires Python 3.9 or later and is on PyPI. There is no hosted continuous integration at present. The test suite is run locally before each release, and each release is archived on Zenodo. dlnmpy is licensed GPL-2.0-or-later as a derived work of dlnm and of R's splines and base packages, which means that software distributed with dlnmpy built into it must also be released under a compatible licence. Using it to analyse data carries no such condition.
+dlnmpy requires Python 3.9 or later and is on PyPI. The repository contains GitHub Actions workflows that run the tests on Linux and macOS with Python 3.9 to 3.13, check a minimal installation and build the package, but they do not currently run on GitHub's hosted service. The test suite is therefore run locally before each release, and each release is archived on Zenodo. dlnmpy is licensed GPL-2.0-or-later as a derived work of dlnm and of R's splines and base packages, which means that software distributed with dlnmpy built into it must also be released under a compatible licence. Using it to analyse data carries no such condition.
 
 # Illustration
 
 The examples use the `chicagoNMMAPS` data distributed with dlnm: daily deaths and temperature in Chicago from 1987 to 2000, 5,114 days.
 
 ## One call from data to results
+
+```{python}
+#| label: chicago-fit-timer
+#| echo: false
+t_fit0 = time.perf_counter()
+```
 
 ```{python}
 #| label: chicago-fit
@@ -179,7 +200,10 @@ The model is a quasi-Poisson regression of daily deaths on a cross-basis of temp
 #| label: tbl-chicago-attr
 #| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile."
 #| echo: false
+t_fit = time.perf_counter() - t_fit0
+t_attr0 = time.perf_counter()
 tab = fit.attributable(seed=2026)
+t_attr = time.perf_counter() - t_attr0
 md(pd.DataFrame({
     "Component": tab.component,
     "AN": [f"{a:,.0f}" for a in tab.an],
@@ -275,19 +299,40 @@ The central claim of the package is numerical equivalence with R. It rests on th
 
 ## Unit fixtures
 
-`tools/make_fixtures.R` and its companions run dlnm, splines, mgcv, mixmeta, survival and the published `attrdl.R` and `findmin.R` on the vignette examples, and write the intermediate objects to `tests/fixtures/`: basis matrices for 36 basis specifications with and without values outside the fitting range, 9 cross-bases, 12 prediction objects, 7 reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The test suite (142 tests in release 0.8.4) compares against them. Tolerances are $10^{-10}$ to $10^{-12}$ for the bases and predictions, $10^{-6}$ to $10^{-8}$ for attribution and QAIC, and looser for the penalised fits against mgcv, which Section 8 discusses. `fit_clogit`, `dlnm()`, the bootstrap functions and plotting have no R fixture of their own.
+```{python}
+#| label: fixture-counts
+#| echo: false
+FIX = REPO / "tests" / "fixtures"
+cases = json.loads((FIX / "cases.json").read_text())
+n_basis = len(json.loads((FIX / "onebasis.json").read_text()))
+n_cb = sum(bool(re.match(r"cb\d", k)) for ex in cases.values() for k in ex)
+n_pred = (sum(k.startswith("pred") for ex in cases.values() for k in ex)
+          + sum("pred" in v for v in json.loads((FIX / "penalized.json").read_text()).values()))
+n_red = sum(k.startswith("red") for ex in cases.values() for k in ex)
+collected = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"], cwd=REPO,
+                           capture_output=True, text=True).stdout
+n_tests = int(re.search(r"(\d+) tests? collected", collected)[1])
+```
+
+`tools/make_fixtures.R` and its companions run dlnm, splines, mgcv, mixmeta, survival and the published `attrdl.R` and `findmin.R` on the vignette examples, and write the intermediate objects to `tests/fixtures/`: basis matrices for `{python} n_basis` basis specifications with and without values outside the fitting range, `{python} n_cb` cross-bases, `{python} n_pred` prediction objects, `{python} n_red` reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The test suite (`{python} n_tests` tests) compares against them. Tolerances are $10^{-10}$ to $10^{-12}$ for the bases and predictions, $10^{-6}$ to $10^{-8}$ for attribution and QAIC, and looser for the penalised fits against mgcv, which Section 8 discusses. `fit_clogit`, `dlnm()`, the bootstrap functions and plotting have no R fixture of their own.
 
 ## Side-by-side analyses
 
-`tools/side_by_side.R` and `tools/side_by_side.py` run five complete analyses in both languages, including the model fit, on data and specifications not used for the fixtures. They cover ordinary least squares on exposure histories in the `drug` trial, conditional logistic regression in the `nested` case-control study, logistic and quasi-Poisson Chicago models with threshold, polynomial, strata and integer bases, and a four-city simulation with known truth. The R results are stored in the repository, so the Python half reruns without R. Each quantity passes if it is within $10^{-10} + 10^{-8}|r|$ of the R value $r$. Four of the rows are coverage checks against the simulated truth and do not involve R.
+`tools/side_by_side.R` and `tools/side_by_side.py` run five complete analyses in both languages, including the model fit, on data and specifications not used for the fixtures. They cover ordinary least squares on exposure histories in the `drug` trial, conditional logistic regression in the `nested` case-control study, logistic and quasi-Poisson Chicago models with threshold, polynomial, strata and integer bases, and a four-city simulation with known truth. The R results are stored in the repository, so the Python half reruns without R. Each row compares a vector or matrix (coefficients, covariance, a prediction) and passes if every element is within $10^{-10} + 10^{-8}|r|$ of the R value $r$, or a tighter bound for the bases. A few rows check coverage of the simulated truth and do not involve R.
 
 ```{python}
 #| label: side-by-side
 #| echo: false
+t0 = time.perf_counter()
 sbs = subprocess.run([sys.executable, "tools/side_by_side.py"], cwd=REPO,
                      capture_output=True, text=True, check=True).stdout.strip().splitlines()
+n_sbs, f_sbs = map(int, re.match(r"(\d+) comparisons, (\d+) failures", sbs[-1]).groups())
+n_cover = sum("truth inside" in line for line in sbs)
+RUNS["side_by_side.py"] = {"seconds": time.perf_counter() - t0, "n": n_sbs - n_cover, "fail": f_sbs}
 print(sbs[-1])
 ```
+
+Of these `{python} n_sbs` rows, `{python} n_cover` are the coverage checks, so `{python} n_sbs - n_cover` are comparisons with R, with `{python} f_sbs` failures.
 
 Audits at releases 0.5.0, 0.6.0 and 0.7.0 compared further edge cases and the workflow layer against R, with every quantity agreeing to $10^{-6}$ or better and most to $10^{-12}$. The results are recorded in `CHANGELOG.md`. The scripts for the 0.6.0 and 0.7.0 comparisons are not in the repository.
 
@@ -295,7 +340,9 @@ Audits at releases 0.5.0, 0.6.0 and 0.7.0 compared further edge cases and the wo
 
 The authors of the methods behind the workflow published their R code and data for several papers. These scripts were written independently of dlnmpy, which makes them the strongest check available. Six were translated into Python, and all six are rerun below as part of this document. For each, the data are downloaded from a pinned commit of the authors' repository and checked against a SHA-256 hash, the R side is produced by a script in `tools/` that runs the authors' code and stores its results in `tests/reference/`, and the Python translation in `examples/` compares every quantity with those stored results. The first two use the ten regions of England and Wales, 1993 to 2006, which are the fully public part of the data behind them.
 
-**Gasparrini et al. (2015), *The Lancet*.** `examples/lancet_2015.py` translates the five stages of the authors' published script: a DLNM per region, reduction to the overall cumulative curve, multivariate meta-regression with BLUPs, the MMT, and attributable deaths with empirical intervals. The paper's own estimates come from 384 locations in 13 countries and are not reproduced here. What is reproduced is the authors' public example script for England and Wales, and the figures in square brackets are that script's results. The minimum mortality percentile is the median of the ten regional values.
+### Gasparrini et al. (2015), *The Lancet*
+
+`examples/lancet_2015.py` translates the five stages of the authors' published script: a DLNM per region, reduction to the overall cumulative curve, multivariate meta-regression with BLUPs, the MMT, and attributable deaths with empirical intervals. The paper's own estimates come from 384 locations in 13 countries and are not reproduced here. What is reproduced is the authors' public example script for England and Wales, and the figures in square brackets are that script's results. The minimum mortality percentile is the median of the ten regional values.
 
 ```{python}
 #| label: lancet
@@ -327,7 +374,9 @@ print(run_example("lancet2015_vs_r.py").splitlines()[-1])
 
 The R script stores three versions of the R side: the authors' code as published, the same code with `glm.control(epsilon = 1e-14)`, and the second stage refitted with mixmeta's optimiser tolerance at $10^{-14}$. Against the published code, the first-stage coefficients differ by $4.8 \times 10^{-10}$ and their covariance by $1.9 \times 10^{-6}$ relative, which is R's default convergence tolerance acting mainly through the dispersion. The meta-regression estimates 30 parameters from 10 regions and its likelihood is flat, so R's default stopping rule leaves its coefficients $10^{-5}$ from the optimum. mvmeta, used in the published script, and mixmeta differ from each other by $5.0 \times 10^{-6}$ at their defaults and agree to $6 \times 10^{-8}$ when both are run to the optimum. dlnmpy's log-likelihood is $1.3 \times 10^{-8}$ higher than R's at its default, and its coefficients are $3.0 \times 10^{-6}$ from R's at the optimum.
 
-**Gasparrini and Armstrong (2013), *BMC Medical Research Methodology*.** This paper introduced the reduction and meta-analysis of DLNM estimates. Its analysis exercises what the Lancet analysis does not: `crossreduce` in its overall and predictor-specific forms, two simpler moving-average lag models compared with the full model, random-effects pooling, Cochran's Q and $I^2$, meta-regression on latitude, and prediction from pooled coefficients. `examples/bmcmrm_2013.py` translates the authors' public script, which they updated in December 2017 for later versions of dlnm and mvmeta. The figures in square brackets are the updated script's results.
+### Gasparrini and Armstrong (2013), *BMC Medical Research Methodology*
+
+This paper introduced the reduction and meta-analysis of DLNM estimates. Its analysis exercises what the Lancet analysis does not: `crossreduce` in its overall and predictor-specific forms, two simpler moving-average lag models compared with the full model, random-effects pooling, Cochran's Q and $I^2$, meta-regression on latitude, and prediction from pooled coefficients. `examples/bmcmrm_2013.py` translates the authors' public script, which they updated in December 2017 for later versions of dlnm and mvmeta. The figures in square brackets are the updated script's results.
 
 ```{python}
 #| label: bmcmrm
@@ -345,7 +394,9 @@ print(run_example("bmcmrm2013_vs_r.py").splitlines()[-1])
 
 Against the authors' code run to convergence, the reductions agree to $10^{-13}$ and their covariances to $2 \times 10^{-11}$, the QAIC totals to $10^{-6}$, and the pooled relative risks to $2 \times 10^{-6}$. The largest absolute difference printed above is on the QAIC totals of the published fit, about 400,000 in size, and comes from R's default `glm` tolerance. Against R's meta-analyses run to their optimum, the pooled coefficients agree to $6 \times 10^{-10}$ and the meta-regression coefficients to $3 \times 10^{-7}$. At its defaults R stops slightly short of the optimum of the pooled fit at 22 °C, with a log-likelihood of 168.244063 where the optimum, reached by both R at a tight tolerance and dlnmpy, is 168.244068.
 
-**Four further papers.** The other four translations cover designs the first two do not. The exposure-lag-response paper [@gasparrini2014elr] applies DLNMs to a cohort, the Colorado Plateau uranium miners, with radon exposure histories at lags of 2 to 40 years entering Cox models fitted on sampled risk sets. The attributable-risk paper [@gasparrini2014attr] computes attributable numbers and fractions for London by both perspectives, for cold, heat and their extreme and mild parts. The tutorial of @vicedo2019tutorial projects temperature-attributable mortality under climate scenarios, with bias correction of the climate models. The penalised DLNM paper [@gasparrini2017pen] fits penalised models to the London series and to the miners cohort with mgcv. @tbl-four summarises the comparisons, which are rerun below.
+### Four further papers
+
+The other four translations cover designs the first two do not. The exposure-lag-response paper [@gasparrini2014elr] applies DLNMs to a cohort, the Colorado Plateau uranium miners, with radon exposure histories at lags of 2 to 40 years entering Cox models fitted on sampled risk sets. The attributable-risk paper [@gasparrini2014attr] computes attributable numbers and fractions for London by both perspectives, for cold, heat and their extreme and mild parts. The tutorial of @vicedo2019tutorial projects temperature-attributable mortality under climate scenarios, with bias correction of the climate models. The penalised DLNM paper [@gasparrini2017pen] fits penalised models to the London series and to the miners cohort with mgcv. @tbl-four summarises the comparisons, which are rerun below.
 
 ```{python}
 #| label: four-papers
@@ -356,6 +407,8 @@ four = [("statmed2014.py", "Gasparrini (2014), cohort with Cox models"),
         ("biomet2017.py", "Gasparrini et al. (2017), penalised DLNMs")]
 for script, _ in four:
     print(run_example(script).splitlines()[-1])
+n_four = sum(RUNS[s]["n"] for s, _ in four)
+heat85 = re.search(r"RCP8\.5 heat\s+([-\d.]+)\s+\(([-\d.]+) to ([-\d.]+)\)", RUNS["vicedo2019.py"]["out"]).groups()
 ```
 
 | Paper | What is compared | Agreement |
@@ -367,7 +420,7 @@ for script, _ in four:
 
 : The four further reproductions. Tolerances are stated in each script, and differences are absolute unless marked relative. {#tbl-four}
 
-Three of these comparisons depend on how R's own fits stop. R's `glm` and `coxph` stop at a relative change of about $10^{-8}$ in the deviance, a few iterations before the maximum. For the London model of @gasparrini2014attr this leaves the authors' coefficients $1.5 \times 10^{-8}$ short, and for model 8 of @gasparrini2014elr $1.6 \times 10^{-6}$ standard errors short, which a reduction summed over 39 lags magnifies to $2 \times 10^{-4}$ standard errors. The R scripts therefore store each fit twice, as the authors' code leaves it and refitted to convergence. The tightest comparisons are against the converged fits, and the distance to the authors' fits is printed alongside. For @gasparrini2017pen the comparison is made at mgcv's smoothing parameters. When dlnmpy selects its own, its REML score was never worse than mgcv's: on one London model the first smoothing parameter went to a value near zero against mgcv's 1.15 with a slightly better score, because the score is almost flat in that direction once the other two lag penalties are present, and the other models agreed to within 1.4%. The published values also hold where the paper reports them. The projected heat-attributable increase for 2090 to 2099 under RCP8.5 in @vicedo2019tutorial is 3.95% (0.69 to 6.75), which the paper prints as 4.0 (0.7 to 6.8).
+Three of these comparisons depend on how R's own fits stop. R's `glm` and `coxph` stop at a relative change of about $10^{-8}$ in the deviance, a few iterations before the maximum. For the London model of @gasparrini2014attr this leaves the authors' coefficients $1.5 \times 10^{-8}$ short, and for model 8 of @gasparrini2014elr $1.6 \times 10^{-6}$ standard errors short, which a reduction summed over 39 lags magnifies to $2 \times 10^{-4}$ standard errors. The R scripts therefore store each fit twice, as the authors' code leaves it and refitted to convergence. The tightest comparisons are against the converged fits, and the distance to the authors' fits is printed alongside. For @gasparrini2017pen the comparison is made at mgcv's smoothing parameters. When dlnmpy selects its own, its REML score was never worse than mgcv's: on one London model the first smoothing parameter went to a value near zero against mgcv's 1.15 with a slightly better score, because the score is almost flat in that direction once the other two lag penalties are present, and the other models agreed to within 1.4%. The published values also hold where the paper reports them. The projected change in the heat-attributable fraction from 2010 to 2019 to 2090 to 2099 under RCP8.5 in @vicedo2019tutorial is `{python} heat85[0]` percentage points (`{python} heat85[1]` to `{python} heat85[2]`), which the paper prints as 4.0 (0.7 to 6.8).
 
 The translations depart from the authors' code in a few documented places, all listed at the top of each script. The internal `s(x, lag, bs = "cb")` smooths of @gasparrini2017pen and the simulation studies of @gasparrini2014elr and @gasparrini2017pen are not reproduced. The miners model of @gasparrini2017pen uses mgcv's default UBRE criterion, which dlnmpy does not implement, so a REML fit of the same model was added for the comparison of smoothing-parameter selection.
 
@@ -377,7 +430,25 @@ The authors' 2013 script computes the quasi-likelihood information criterion (QA
 
 Later comparisons found defects of the same kind. Translating @gasparrini2014elr showed that `fit_clogit` returned coefficients that were all missing, without raising an error, on designs with large columns such as a cross-basis of cumulative radon exposure, and that its standard errors could be wrong by up to $5 \times 10^{-3}$ when the coefficients were very small. Translating @gasparrini2017pen showed that the penalised fitter could return an all-missing fit while reporting convergence. Committing these translations for this paper found three more. `simulate_coef` claimed to reproduce R's simulated coefficients from R's normal deviates, which fails whenever the two languages' eigenvalue routines choose opposite signs for an eigenvector. In the London model of @gasparrini2014attr 8 of 20 had opposite signs, and the attributable-number intervals differed by up to 1.2%. `fit_clogit` lost its parameter names on the step-halving path. `int=`, the authors' spelling of `intercept`, was rejected. The audits found defects in the ported functions themselves. `crossbasis` discarded a centring value given in `argvar`, which R keeps, giving a relative risk of 1.343 where R gives 1.166. The link detection treated a complementary log-log link as a log link. `strata` accepted tied breaks that R rejects. Others sat in the Python layers around the port, for example an offset discarded on its way into the fitter and an exposure logged twice on a refit after an aliased column was dropped.
 
-`docs/defects.md` lists every defect with the release that fixed it, the function, whether it was silent, how it was found and the regression test that guards it. A defect is counted there if it gave a wrong number, crashed, hung, or rejected input that R accepts. By that rule there were 41 between releases 0.4.1 and 0.8.4. Of these, 28 gave wrong results without an error and 13 crashed or refused valid input. Sixteen were in functions ported from R and 25 in the Python layers around them. The audits against R found 28, the reproductions of published analyses 11, a user's run 1, and the source of one is not recorded. None was found by the unit fixtures, which is what they are for: they confirm that each piece is right once written, and the defects lay in how pieces were combined or in inputs the fixtures did not cover. Five of the 41 have no targeted regression test, and the ledger names them.
+```{python}
+#| label: defect-counts
+#| echo: false
+ledger = [[c.strip() for c in row.strip().strip("|").split("|")]
+          for row in (REPO / "docs" / "defects.md").read_text().splitlines()
+          if re.match(r"\| D\d\d ", row)]
+D = {"n": len(ledger),
+     "silent": sum(r[4] == "yes" for r in ledger), "loud": sum(r[4] == "no" for r in ledger),
+     "port": sum(r[6] == "port" for r in ledger), "layer": sum(r[6] == "layer" for r in ledger),
+     "audit": sum(r[5].startswith("audit") for r in ledger),
+     "repro": sum(r[5].startswith("reproduction") for r in ledger),
+     "user": sum(r[5].startswith("user") for r in ledger),
+     "other": sum(r[5].startswith("other") for r in ledger),
+     "untested": sum(r[7] == "none found" for r in ledger)}
+assert D["silent"] + D["loud"] == D["port"] + D["layer"] == D["n"]
+assert D["audit"] + D["repro"] + D["user"] + D["other"] == D["n"]
+```
+
+`docs/defects.md` lists every defect with the release that fixed it, the function, whether it was silent, how it was found and the regression test that guards it. A defect is counted there if it gave a wrong number, crashed, hung, or rejected input that R accepts. By that rule there were `{python} D["n"]` between releases 0.4.1 and 0.8.4. Of these, `{python} D["silent"]` gave wrong results without an error and `{python} D["loud"]` crashed or refused valid input. By location, `{python} D["port"]` were in functions ported from R and `{python} D["layer"]` in the Python layers around them. The audits against R found `{python} D["audit"]`, the reproductions of published analyses `{python} D["repro"]`, a user's run `{python} D["user"]`, and the source of `{python} D["other"]` is not recorded. None was found by the unit fixtures, which is what they are for: they confirm that each piece is right once written, and the defects lay in how pieces were combined or in inputs the fixtures did not cover. The ledger names the `{python} D["untested"]` defects that have no targeted regression test.
 
 # Use with gridded and spatial data
 
@@ -460,29 +531,75 @@ The penalised fitter chooses smoothing parameters with a general-purpose optimis
 
 mixmetapy implements the single-level model of mixmeta. The multilevel and longitudinal extensions of @sera2019mixmeta are not ported, and Bayesian estimation is not offered.
 
-dlnmpy is slower than R in places. On the two-core machine used for this paper, `fit_clogit` took 30 to 90 seconds per Cox model in the miners cohort, where `survival::coxph` takes under a second, because statsmodels evaluates the conditional likelihood one risk set at a time in Python. The `cr` basis evaluates its spline value by value in Python and took about 70 seconds for the 3 million exposure values of the miners data. The one-call Chicago fit took about 4 seconds and the attributable-risk table with 5,000 simulations about 15 seconds. The translation of @gasparrini2014elr therefore takes about 8 minutes, against about a minute for the authors' R code. Neither bottleneck changes a result, and both are on the development plan.
+```{python}
+#| label: runtime-limits
+#| echo: false
+r_statmed = json.loads((REFERENCE / "statmed2014.json").read_text())["versions"]["runtime_seconds"]
+```
+
+dlnmpy is slower than R in places. In the render of this copy, on the machine described in @sec-computational, the one-call Chicago fit with its summary took `{python} f"{t_fit:.0f}"` seconds and the attributable-risk table with 5,000 simulations `{python} f"{t_attr:.0f}"` seconds. The translation of @gasparrini2014elr took `{python} f"{RUNS['statmed2014.py']['seconds'] / 60:.0f}"` minutes, against `{python} f"{r_statmed:.0f}"` seconds for the R script that produced its reference results, which also refits each model to convergence. Most of the difference lies in `fit_clogit`, which evaluates the conditional likelihood one risk set at a time in Python through statsmodels, where `survival::coxph` uses compiled code, and in the `cr` basis, which evaluates its spline one value at a time in Python. Neither bottleneck changes a result.
 
 The checks are only as broad as the analyses compared. A combination of arguments that no fixture, side-by-side analysis or translation exercises has been checked only through the tests of its parts. As Section 5 sets out, most of the R code used for comparison came from the same development process as the port, and the translated published scripts are the only fully independent reference.
 
-The package has one maintainer and no hosted continuous integration. The port follows dlnm 2.4.10, the porting guide documents the mapping function by function, and the fixtures make divergence from R visible, but none of this replaces a second maintainer.
+The package has one maintainer, and its continuous integration does not currently run. The port follows dlnm 2.4.10, the porting guide documents the mapping function by function, and the fixtures make divergence from R visible, but none of this replaces a second maintainer.
 
-# Reproducibility
+# Reproducibility {#sec-repro}
 
-The reproducibility package is the GitHub repository at release 0.8.4, which contains this manuscript and is archived on Zenodo [@parker2026dlnmpy], with mixmetapy 0.1.1 [@parker2026mixmetapy].
+The software described here is dlnmpy release 0.8.4, with mixmetapy release 0.1.1. The repository also holds the source of this manuscript, the R scripts that produced the reference results, and the stored results themselves. `REPRODUCE.md` at the root of the repository gives the steps from a fresh clone.
 
-- **Entry point.** From the repository root, `pip install -r paper/requirements.txt` in Python 3.11, then `quarto render paper/manuscript.qmd`. Rendering reruns the worked examples in Section 4, the side-by-side comparison, the six published translations and their comparisons with R in Section 5, and the gridded example in Section 6. It took about 20 minutes on a two-core machine, most of it the translation of @gasparrini2014elr. `pytest` reruns the unit fixtures in about six minutes.
-- **Environment.** `paper/requirements.txt` pins the packages used for this manuscript and their main dependencies, and `paper/.python-version` gives the Python version.
-- **Data.** The Chicago data and the simulated cities ship with the package. The data for the six translations (England and Wales, London, the uranium miners and the climate projections) are downloaded on first render from pinned commits of the authors' repositories and checked against SHA-256 hashes. They are not redistributed. The gridded example is simulated in the document.
-- **Determinism.** Every simulation takes a fixed seed: 0 for the MMT interval in `summary()` and the figure, 2026 for the Chicago attribution, 1000 plus the region index for the Lancet translation, and 1 for the simulated cities and the gridded example. The translations of @gasparrini2014attr and @vicedo2019tutorial replay the normal deviates and eigenvectors R used (seeds 20140421 and 13041975 plus the climate-model index on the R side), so their intervals are compared without Monte Carlo error. The library's own defaults are unseeded, so users who want repeatable intervals must pass a seed.
-- **What needs R.** The R sides of the comparisons were produced with R 4.3.3, dlnm 2.4.7, mvmeta 1.0.3, mixmeta 1.2.2, mgcv and survival. Each stored result records the versions that produced it. The R code of dlnm 2.4.7 and 2.4.10 differs only in `getvcov()` for `geeglm` models, which dlnmpy does not port. The stored results let the Python side rerun without R, and the scripts in `tools/` regenerate them from the authors' code.
+In Python 3.11, from the repository root: `pip install -r paper/requirements.txt`, then `pip install --no-deps -e .` so that the document runs the code in the clone, then `quarto render paper/manuscript.qmd`. Rendering reruns the worked examples in Section 4, the side-by-side comparison, the six published translations and their comparisons with R in Section 5, and the gridded example in Section 6. `pytest` reruns the unit fixtures. @sec-computational gives the times measured during the render of this copy.
+
+`paper/requirements.txt` pins every Python package used for this manuscript and its dependencies, and `paper/.python-version` gives the Python version. @tbl-versions lists what was installed when this copy was rendered.
+
+The Chicago data and the simulated cities ship with the package. The data for the six translations (England and Wales, London, the uranium miners and the climate projections) are downloaded on first render from pinned commits of the authors' repositories on GitHub and checked against SHA-256 hashes. They are not redistributed. Rendering therefore needs access to `raw.githubusercontent.com` once, after which the files are kept in `examples/` and, for the penalised DLNM paper, in `~/.cache/dlnmpy` (or the directory named by `DLNMPY_CACHE`). The gridded example is simulated in the document.
+
+Every simulation takes a fixed seed: 0 for the MMT interval in `summary()` and the figure, 2026 for the Chicago attribution, 1000 plus the region index for the Lancet translation, and 1 for the simulated cities and the gridded example. The translations of @gasparrini2014attr and @vicedo2019tutorial replay the normal deviates and eigenvectors R used (seeds 20140421 and 13041975 plus the climate-model index on the R side), so their intervals are compared without Monte Carlo error. The library's own defaults are unseeded, so users who want repeatable intervals must pass a seed.
+
+The render needs no R. The R sides of the comparisons are stored in `tests/reference/` and `tests/side_by_side/`, each with the versions that produced it (@tbl-versions), and the scripts in `tools/` regenerate them from the authors' code. The R code of dlnm 2.4.7 and 2.4.10 differs only in `getvcov()` for `geeglm` models, which dlnmpy does not port. The fixture files in `tests/fixtures/` do not record the R versions that produced them.
+
+## Computational details {#sec-computational}
+
+```{python}
+#| label: tbl-versions
+#| tbl-cap: "Software used for this copy of the manuscript. The Python rows are read from the environment that rendered it. The R rows are read from the stored reference results, which were produced once with R and are not rerun."
+#| echo: false
+import platform, os
+quarto = subprocess.run(["quarto", "--version"], capture_output=True, text=True).stdout.strip()
+py_pkgs = ["dlnmpy", "mixmetapy", "numpy", "scipy", "pandas", "statsmodels", "matplotlib",
+           "xarray", "geopandas", "shapely", "formulaic", "pytest"]
+rows = [("Python", platform.python_version(), "interpreter"), ("Quarto", quarto, "rendering")]
+rows += [(name, metadata.version(name), "Python package") for name in py_pkgs]
+r_versions = {}
+for f in sorted(REFERENCE.glob("*.json")):
+    for k, v in json.loads(f.read_text())["versions"].items():
+        if k in ("R", "dlnm", "mvmeta", "mixmeta", "mgcv", "survival", "MASS", "tsModel"):
+            r_versions.setdefault(k, set()).add(v.replace("R version ", "").split(" (")[0])
+rows += [(k if k != "R" else "R", ", ".join(sorted(v)), "reference results only")
+         for k, v in r_versions.items()]
+md(pd.DataFrame(rows, columns=["Software", "Version", "Role"]))
+```
+
+```{python}
+#| label: runtimes
+#| echo: false
+cpu = os.cpu_count()
+host = f"{platform.system()} {platform.machine()}, {cpu} logical CPUs"
+total_min = sum(r["seconds"] for r in RUNS.values()) / 60
+```
+
+This copy was rendered on `{python} host`. The references in @tbl-versions are @rcore2024, @dlnmcran, @mvmetacran, @mixmetacran, @wood2017gam with @mgcvcran, @therneau2000survival with @survivalcran, @venables2002mass and @tsmodelcran for R, and @harris2020numpy, @virtanen2020scipy, @mckinney2010pandas with @pandas2020zenodo, @seabold2010statsmodels, @hunter2007matplotlib, @hoyer2017xarray, @jordahl2020geopandas and @allaire2022quarto for Python. The six translations and the side-by-side comparison took `{python} f"{total_min:.0f}"` minutes of the render between them, of which the translation of @gasparrini2014elr took `{python} f"{RUNS['statmed2014.py']['seconds'] / 60:.0f}"`.
 
 # Declarations
 
-**Data and code availability.** All code is in the repository above under GPL-2.0-or-later. All data are public or simulated, as described in Section 9.
+**Code availability.** dlnmpy is at <https://github.com/Logic06183/dlnmpy> under GPL-2.0-or-later. The version described is release 0.8.4 (Git tag `v0.8.4`), archived on Zenodo with version DOI [10.5281/zenodo.23362540](https://doi.org/10.5281/zenodo.23362540) (all versions: [10.5281/zenodo.22876735](https://doi.org/10.5281/zenodo.22876735)) and installable with `pip install dlnmpy==0.8.4`. mixmetapy is at <https://github.com/Logic06183/mixmetapy> under GPL-3.0-or-later, release 0.1.1 [@parker2026mixmetapy]. The source of this manuscript and the scripts it runs are in the dlnmpy repository under `paper/`, `examples/` and `tools/`, at the commit tagged [CHECK: tag of the submitted manuscript].
+
+**Data availability.** All data are public or simulated. The sources, pinned commits and SHA-256 hashes are given in @sec-repro and in each script in `examples/`.
+
+**Author contributions.** CP: conceptualisation, methodology, software, validation, formal analysis, investigation, data curation, writing (original draft, review and editing), visualisation, project administration.
 
 **Use of AI.** dlnmpy, mixmetapy and this manuscript were developed with substantial assistance from an AI coding assistant (Claude, Anthropic), over about seven weeks from late August 2026. The assistant drafted the Python code, the tests, the R scripts that produce the reference results, the translations of the published analyses, the audits, the documentation and the manuscript. The author designed the project, decided what to port and how it would be checked against R, directed the work, ran the comparisons and reviewed each defect fix and its test before release. Commits the assistant contributed to are marked as co-authored in the repository history. The checks described in Section 5 were produced by the same process, apart from the authors' published R scripts they run, and the author takes responsibility for all of the work.
 
-**Funding.** [TO CONFIRM] This work was carried out within the HE²AT Center, supported by the US National Institutes of Health through the Data Science for Health Discovery and Innovation in Africa (DS-I Africa) programme, grant U54TW012083.
+**Funding.** This work was carried out within the HE²AT Center, supported by the US National Institutes of Health through the Data Science for Health Discovery and Innovation in Africa (DS-I Africa) programme, grant U54TW012083 [CHECK: grant number].
 
 **Competing interests.** None.
 
@@ -491,6 +608,37 @@ The reproducibility package is the GitHub repository at release 0.8.4, which con
 # Acknowledgements
 
 The methods, R packages and scripts ported here are the work of others, and dlnmpy exists because they made their code and data public: Antonio Gasparrini, Ben Armstrong and Fabian Scheipl (dlnm), Michela Leone (`attrdl`), Aurelio Tobías (`findmin`), Francesco Sera (mixmeta), Ana Vicedo-Cabrera, Simon Wood (mgcv) and the R Core Team (splines and base). None of them has reviewed dlnmpy, and any errors are the author's.
+
+```{python}
+#| label: abstract-check
+#| echo: false
+# The abstract is typed, because Quarto does not run code in the YAML header.
+# Stop the render if any of its numbers no longer matches what this document
+# computed above.
+abstract = re.search(r"abstract: \|\n(.*?)\nkeywords:", (REPO / "paper" / "manuscript.qmd").read_text(),
+                     re.S)[1]
+lancet_py = RUNS["lancet2015_vs_r.py"]["out"]
+mmp = float(re.search(r"MMT percentile\s+([\d.]+)", lancet_py)[1])
+af_total = float(re.search(r"AF total %\s+([\d.]+)", lancet_py)[1])
+bmc = RUNS["bmcmrm_2013.py"]["out"]
+rr22, rr0 = (re.search(rf"pooled RR at\s+{t} C\s+([\d.]+)", bmc)[1] for t in (22, 0))
+# the abstract says the authors' code gives the same values as dlnmpy
+r13 = json.loads((REFERENCE / "bmcmrm2013.json").read_text())["published"]["second_stage"]
+r15 = json.loads((REFERENCE / "lancet2015.json").read_text())["attributable"]["published"]
+assert (f"{r13['rr22'][0]:.3f}", f"{r13['rr0'][0]:.3f}") == (rr22, rr0)
+assert (f"{r15['minperccountry']:.1f}", f"{r15['aftot'][0]:.2f}") == (f"{mmp:.1f}", f"{af_total:.2f}")
+six = ["lancet2015_vs_r.py", "bmcmrm2013_vs_r.py"] + [s for s, _ in four]
+n_six = sum(RUNS[s]["n"] for s in six)
+assert all(RUNS[s]["fail"] == 0 for s in six + ["side_by_side.py"])
+expected = [f"({n_sbs - n_cover} comparisons within a relative tolerance of 1e-8)",
+            f"median minimum mortality percentile of {mmp:.1f}",
+            f"attributable fraction of {af_total:.2f}%",
+            f"relative risks of {rr22} at 22 °C and {rr0} at 0 °C",
+            f"in all {n_six:,} comparisons",
+            f"found {D['n']} defects", f"{D['silent']} of them silent"]
+missing = [e for e in expected if e not in " ".join(abstract.split())]
+assert not missing, f"abstract out of date: {missing}"
+```
 
 # References {.unnumbered}
 
