@@ -46,6 +46,8 @@ Earlier versions of this page gave intervals of 8.42-9.43 from an R run whose se
 
 Against the authors' code with the first-stage `glm` run to convergence (`glm.control(epsilon = 1e-14)`):
 
+The meta-regression rows depend on the platform in their last digits, because the likelihood is flat and every optimiser stops a little short of its maximum. A run on Linux x86_64 (19 October 2026) gave coefficients 1.1e-05 (1.1e-06 against R at its optimum), Psi 3.0e-06 (1.2e-07), attributable deaths 0.21 (1.4e-05 relative) and fractions 3.1e-05; the table below is from the earlier run. `paper/manuscript.qmd` builds this table from the run that renders it.
+
 | Stage | Quantity | max abs difference |
 |---|---|---|
 | 1. First stage | reduced coefficients | 1.0e-13 |

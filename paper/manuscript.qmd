@@ -365,21 +365,41 @@ The point estimates agree with the R script to the printed digit. The intervals 
 print(run_example("lancet2015_vs_r.py").splitlines()[-1])
 ```
 
-| Stage | Quantity | Maximum absolute difference from R |
-|---|---|---|
-| First stage | reduced coefficients | $1.0 \times 10^{-13}$ |
-| First stage | reduced covariance | $5.2 \times 10^{-12}$ |
-| Meta-regression | log-likelihood | $1.3 \times 10^{-8}$ (dlnmpy higher) |
-| Meta-regression | coefficients | $1.5 \times 10^{-5}$ ($3.0 \times 10^{-6}$ against R at its optimum) |
-| Meta-regression | between-study covariance | $3.5 \times 10^{-6}$ ($3.5 \times 10^{-7}$ against R at its optimum) |
-| MMT | minimum mortality percentile | 0 (all ten regions) |
-| MMT | minimum mortality temperature | $4.3 \times 10^{-14}$ |
-| Attribution | attributable deaths, per region and total | 0.22 deaths ($1.5 \times 10^{-5}$ relative) |
-| Attribution | attributable fraction | $3.4 \times 10^{-5}$ percentage points |
+```{python}
+#| label: tbl-lancet-stages
+#| tbl-cap: "Agreement with R at each stage of the reproduction of @gasparrini2015lancet, against the authors' code with the first-stage `glm` run to convergence, as computed in this render. Differences are absolute; the meta-regression rows in brackets are against R's mixmeta run to its optimum."
+#| echo: false
+groups = {m[1]: (int(m[2]), float(m[3]), float(m[4]))
+          for m in re.finditer(r"^\s+(\([abc]\) \d [^\n]*?)\s+(\d+)\s+([\d.e+-]+)\s+([\d.e+-]+)\s+\d+$",
+                               RUNS["lancet2015_vs_r.py"]["out"], re.M)}
+g = lambda k: groups[k][1]
+def sci(v):
+    if v == 0:
+        return "0"
+    m, e = f"{v:.1e}".split("e")
+    return f"${m} \\times 10^{{{int(e)}}}$"
+L = {"coef_b": g("(b) 2 meta-regression coef"), "coef_c": g("(c) 2 meta-regression coef"),
+     "psi_b": g("(b) 2 Psi"), "psi_c": g("(c) 2 Psi"), "ll_b": g("(b) 2 meta-regression logLik"),
+     "red_a": g("(a) 1 reduced coef"), "redv_a_rel": groups["(a) 1 reduced vcov"][2]}
+ll_py, ll_r = map(float, re.search(r"logLik: python ([\d.-]+), R mixmeta ([\d.-]+)",
+                                    RUNS["lancet2015_vs_r.py"]["out"]).groups())
+mv_mx = float(re.search(r"mvmeta vs mixmeta max abs difference coef ([\d.e+-]+)",
+                        RUNS["lancet2015_vs_r.py"]["out"])[1])
+md(pd.DataFrame([
+    ("First stage", "reduced coefficients", sci(g("(b) 1 reduced coef"))),
+    ("First stage", "reduced covariance", sci(g("(b) 1 reduced vcov"))),
+    ("Meta-regression", "log-likelihood", sci(L["ll_b"])),
+    ("Meta-regression", "coefficients", f"{sci(L['coef_b'])} ({sci(L['coef_c'])})"),
+    ("Meta-regression", "between-study covariance", f"{sci(L['psi_b'])} ({sci(L['psi_c'])})"),
+    ("MMT", "minimum mortality percentile", sci(g("(b) 3 MMT percentile"))),
+    ("MMT", "minimum mortality temperature (°C)", sci(g("(b) 3 MMT (C)"))),
+    ("Attribution", "attributable deaths, per region and total",
+     f"{g('(b) 4 AN'):.2f} deaths ({sci(groups['(b) 4 AN'][2])} relative)"),
+    ("Attribution", "attributable fraction (percentage points)", sci(g("(b) 4 AF %"))),
+], columns=["Stage", "Quantity", "Maximum absolute difference from R"]))
+```
 
-: Agreement with R at each stage of the reproduction of @gasparrini2015lancet, against the authors' code with the first-stage `glm` run to convergence. {#tbl-lancet-stages}
-
-The R script stores three versions of the R side: the authors' code as published, the same code with `glm.control(epsilon = 1e-14)`, and the second stage refitted with mixmeta's optimiser tolerance at $10^{-14}$. Against the published code, the first-stage coefficients differ by $4.8 \times 10^{-10}$ and their covariance by $1.9 \times 10^{-6}$ relative, which is R's default convergence tolerance acting mainly through the dispersion. The meta-regression estimates 30 parameters from 10 regions and its likelihood is flat, so R's default stopping rule leaves its coefficients $10^{-5}$ from the optimum. mvmeta, used in the published script, and mixmeta differ from each other by $5.0 \times 10^{-6}$ at their defaults and agree to $6 \times 10^{-8}$ when both are run to the optimum. dlnmpy's log-likelihood is $1.3 \times 10^{-8}$ higher than R's at its default, and its coefficients are $3.0 \times 10^{-6}$ from R's at the optimum.
+The R script stores three versions of the R side: the authors' code as published, the same code with `glm.control(epsilon = 1e-14)`, and the second stage refitted with mixmeta's optimiser tolerance at $10^{-14}$. Against the published code, the first-stage coefficients differ by `{python} sci(L["red_a"])` and their covariance by `{python} sci(L["redv_a_rel"])` relative, which is R's default convergence tolerance acting mainly through the dispersion. The meta-regression estimates 30 parameters from 10 regions and its likelihood is flat, so R's default stopping rule leaves its coefficients about $10^{-5}$ from the optimum, and the last digits of any optimiser's answer depend on the platform. mvmeta, used in the published script, and mixmeta differ from each other by `{python} sci(mv_mx)` at their defaults, and agree to $6 \times 10^{-8}$ when both are run to the optimum [CHECK: not in the stored R results]. dlnmpy's log-likelihood is `{python} sci(abs(ll_py - ll_r))` `{python} "higher" if ll_py > ll_r else "lower"` than R's at its default, and its coefficients are `{python} sci(L["coef_c"])` from R's at the optimum.
 
 ### Gasparrini and Armstrong (2013), *BMC Medical Research Methodology*
 
