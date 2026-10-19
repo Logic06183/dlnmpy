@@ -46,7 +46,7 @@ def bootstrap(fn, coef, vcov, nsim: int = 1000, seed=None, coefsim=None):
 
 
 def empirical_ci(samples, level: float = 0.95, axis: int = 0):
-    """Percentile interval of bootstrap samples: ``(low, high)``."""
+    """Percentile interval (R's quantile type 7) of simulated values: ``(low, high)``."""
     a = (1 - level) / 2
     return np.quantile(samples, a, axis=axis), np.quantile(samples, 1 - a, axis=axis)
 

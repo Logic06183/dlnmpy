@@ -194,7 +194,9 @@ class DLNM:
         """Overall cumulative association at exposure percentiles, relative
         to ``cen`` (default the MMT): the numbers a results table reports.
 
-        For a log or logit link the effect column is ``rr`` (exponentiated).
+        For a log or logit link the effect column is ``rr`` (exponentiated;
+        for a logit link it is an odds ratio, as R's ``allRRfit`` is, and
+        :meth:`summary` labels it OR).
         For any other link (a Gaussian model, say) it is ``effect``, on the
         scale of the linear predictor, since a ratio has no meaning there."""
         pct = np.atleast_1d(np.asarray(percentiles, dtype=float))
