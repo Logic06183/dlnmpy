@@ -61,7 +61,7 @@ The meta-regression rows depend on the platform in their last digits, because th
 | 4. Attributable | attributable fraction | 3.4e-05 percentage points |
 
 - In the first stage with R's default `epsilon = 1e-8`, as in the published script, the reduced coefficients differ by 4.8e-10 and the covariance by 1.9e-6 relative. (An earlier version of this page said 1e-7.) R's default tolerance acts mainly through the dispersion.
-- The meta-regression estimates 30 parameters from 10 studies on a flat likelihood, so R's default stopping rule leaves it about 1e-5 from the optimum. `mvmeta` and `mixmeta` differ from each other by 5.0e-06 at their defaults and agree to 6e-8 when both are run with `reltol = 1e-14`. Against R at that optimum, Python's coefficients agree to 3.0e-6. (An earlier version of this page said dlnmpy "sits inside the spread of two R implementations". The comparison at the optimum is the right one.)
+- The meta-regression estimates 30 parameters from 10 studies on a flat likelihood, so R's default stopping rule leaves it about 1e-5 from the optimum. `mvmeta` and `mixmeta` differ from each other by 5.0e-06 at their defaults and agree to 6e-8 when both are run with `reltol = 1e-14` (from an R run whose `mvmeta` results are not stored in `tests/reference/lancet2015.json`, so this figure cannot be rechecked from the repository). Against R at that optimum, Python's coefficients agree to 3.0e-6. (An earlier version of this page said dlnmpy "sits inside the spread of two R implementations". The comparison at the optimum is the right one.)
 
 ### Conventions that differ from `mvmeta`
 

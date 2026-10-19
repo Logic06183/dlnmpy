@@ -11,7 +11,7 @@ author:
         country: South Africa
 article-type: software
 abstract: |
-  Distributed lag non-linear models (DLNMs) are the standard framework for exposure-lag-response associations in environmental epidemiology, especially temperature and mortality. The reference implementation is the R package dlnm, and the quantities applied papers report around it come from further R packages and published scripts. This paper presents dlnmpy, a Python implementation of the DLNM framework and its workflow with no R dependency. It ports dlnm, including R's spline, pretty() and quantile() routines so that default knots and prediction grids match, and adds attributable risk, the minimum mortality temperature, penalised DLNMs and a one-call workflow. Meta-analysis is in the companion package mixmetapy. Agreement with R is checked in three layers: fixtures generated in R, five analyses run in both languages (98 comparisons within a relative tolerance of 1e-8), and six published analyses whose authors' R code was translated into Python and rerun. For England and Wales, the code of Gasparrini et al. (2015) gives a median minimum mortality percentile of 89.5 and an attributable fraction of 8.94%, and that of Gasparrini and Armstrong (2013) gives pooled relative risks of 1.101 at 22 °C and 1.309 at 0 °C. dlnmpy gives the same values, and the six translations agree with the authors' code in all 161,356 comparisons at stated tolerances. These analyses cover daily time series and one cohort, with log links and unit weights. The comparisons found 41 defects between releases 0.4.1 and 0.8.4, 28 of them silent, each with the test that guards it. The executable manuscript reruns every comparison.
+  Distributed lag non-linear models (DLNMs) are the standard framework for exposure-lag-response associations in environmental epidemiology, especially temperature and mortality. The reference implementation is the R package dlnm, with further R packages and scripts for the quantities applied papers report. This paper presents dlnmpy, a Python implementation of the framework and its workflow with no R dependency. It ports dlnm, with R's spline, pretty() and quantile() routines so that default knots match, and adds attributable risk, the minimum mortality temperature, penalised DLNMs and a one-call workflow. Meta-analysis is in the companion package mixmetapy. Agreement with R is checked in three layers: fixtures generated in R, five analyses run in both languages (98 comparisons, each within 1e-10 + 1e-8|r| of R's value r), and six published analyses whose authors' R code was translated into Python and rerun. For England and Wales, the code of Gasparrini et al. (2015) gives a median minimum mortality percentile of 89.5 and an attributable fraction of 8.94%, and that of Gasparrini and Armstrong (2013) gives pooled relative risks of 1.101 at 22 °C and 1.309 at 0 °C. dlnmpy gives the same values, and the six translations agree with the authors' code in all 161,356 comparisons at stated tolerances. These cover daily time series and one cohort, with log links, unit weights and, for penalised models, mgcv's smoothing parameters. Development found 41 defects between releases 0.4.1 and 0.8.4, 28 of them silent, each recorded in a ledger. The executable manuscript reruns the examples and all six translations.
 keywords: [distributed lag non-linear models, Python, reproducibility, temperature and mortality, software validation, environmental epidemiology]
 bibliography: references.bib
 quarto-required: ">=1.6.0"
@@ -201,23 +201,26 @@ The model is a quasi-Poisson regression of daily deaths on a cross-basis of temp
 
 ```{python}
 #| label: tbl-chicago-attr
-#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile. The point estimates do not depend on the simulation. The interval limits change with the seed at this number of simulations, so they are rounded to 100 deaths and 0.1 percentage points. As in the authors' published code, each extreme range and the moderate range next to it share their cut-off, and Chicago temperatures, converted from whole degrees Fahrenheit, fall exactly on it on some days, which then count in both."
+#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile. The point estimates do not depend on the simulation. The interval limits change with the seed at this number of simulations, so they are rounded to the power of ten at or above their Monte Carlo standard deviation, given in the text. As in the authors' published code, each extreme range and the moderate range next to it share their cut-off, and Chicago temperatures, converted from whole degrees Fahrenheit, fall exactly on it on some days, which then count in both."
 #| echo: false
 t_fit = time.perf_counter() - t_fit0
 t_attr0 = time.perf_counter()
 tab = fit.attributable(seed=2026)
 t_attr = time.perf_counter() - t_attr0
 # Monte Carlo error of the simulated limits: the same table with four more seeds
-reps = [tab] + [fit.attributable(seed=s) for s in (2027, 2028, 2029, 2030)]
+reps = [tab] + [fit.attributable(seed=s) for s in range(2027, 2036)]
 lim = np.stack([np.c_[r.an_low, r.an_high, r.af_low, r.af_high] for r in reps])   # seed x component x limit
 mc_sd = lim.std(axis=0, ddof=1)
 mc = {"total_an": mc_sd[0, :2].max(), "total_af": 100 * mc_sd[0, 2:].max(), "max_an": mc_sd[:, :2].max()}
+# round the limits to the power of ten at or above their Monte Carlo SD
+an_digits = -int(np.ceil(np.log10(mc["max_an"])))
+af_digits = max(0, -int(np.ceil(np.log10(100 * mc_sd[:, 2:].max()))))
 md(pd.DataFrame({
     "Component": tab.component,
     "AN": [f"{a:,.0f}" for a in tab.an],
-    "AN 95% eCI": [f"{round(l, -2):,.0f} to {round(h, -2):,.0f}" for l, h in zip(tab.an_low, tab.an_high)],
+    "AN 95% eCI": [f"{round(l, an_digits):,.0f} to {round(h, an_digits):,.0f}" for l, h in zip(tab.an_low, tab.an_high)],
     "AF (%)": [f"{100*a:.2f}" for a in tab.af],
-    "AF 95% eCI": [f"{100*l:.1f} to {100*h:.1f}" for l, h in zip(tab.af_low, tab.af_high)],
+    "AF 95% eCI": [f"{100*l:.{af_digits}f} to {100*h:.{af_digits}f}" for l, h in zip(tab.af_low, tab.af_high)],
 }))
 ```
 
@@ -227,7 +230,7 @@ md(pd.DataFrame({
 ax = fit.figure(xlab="Temperature (°C)")
 ```
 
-Over five seeds (2026 to 2030) the standard deviation of the limits of the total attributable number was `{python} f"{mc['total_an']:,.0f}"` deaths, and of the limits of the total fraction `{python} f"{mc['total_af']:.2f}"` percentage points. For any component it was at most `{python} f"{mc['max_an']:,.0f}"` deaths. The point estimates do not depend on the simulation, but the limits cannot be read more finely than this.
+Over ten seeds (2026 to 2035) the standard deviation of the limits of the total attributable number was `{python} f"{mc['total_an']:,.0f}"` deaths, and of the limits of the total fraction `{python} f"{mc['total_af']:.2f}"` percentage points. For any component it was at most `{python} f"{mc['max_an']:,.0f}"` deaths. The point estimates do not depend on the simulation, but the limits cannot be read more finely than this.
 
 ```{python}
 #| label: chicago-claims
@@ -501,7 +504,7 @@ md(pd.DataFrame([[f"`{f}`"] + ["yes" if re.search(rf"\b{f}\(", src[k]) else "" f
 
 Five of the six scripts count comparisons element by element, so a covariance matrix of 20 coefficients contributes 400 and a prediction grid one per point. The script for @gasparrini2017pen counts each compared quantity once, so its `{python} RUNS['biomet2017.py']['n']` comparisons cover `{python} f'{bio_elements:,}'` elements. The counts show the size of each check. Its breadth is in @tbl-coverage and in the list of quantities at the top of each script. Equivalence is shown for the configurations the published analyses use, which are daily time series and one cohort with sampled risk sets, log links, unit prior weights, and penalised fits at mgcv's smoothing parameters. Prior weights, attribution with a logit link, `group=` with forward attribution, and smoothing parameters selected by dlnmpy are checked against R only through the unit tests of their parts, or not at all.
 
-## What the comparisons found
+## What the comparisons found {#sec-found}
 
 The authors' 2013 script computes the quasi-likelihood information criterion (QAIC) of its three lag specifications (a flexible spline over lags 0 to 21 and moving averages over lags 0 to 3 and 0 to 21), although the paper compares them graphically. Before release 0.4.1, dlnmpy took the log-likelihood from statsmodels, which for a quasi-Poisson family divides the Poisson log-likelihood by the estimated dispersion. The dispersion differs between candidate models, so the error does not cancel in a comparison, and it favours the more over-dispersed, less well-fitting specification. The old criterion ranked the lag 0 to 3 moving average first. The corrected criterion gives the ranking printed above, with the flexible model first, as the R script does. The unit test for the criterion had passed because it compared the implementation with itself. The defect was fixed in 0.4.1 with fixtures from R, and the 2013 translation, added in 0.5.0, showed what it would have done to a model choice made by QAIC.
 
@@ -627,7 +630,7 @@ The package has one maintainer, and its continuous integration does not currentl
 
 # Reproducibility {#sec-repro}
 
-The software described here is dlnmpy release 0.8.4, with mixmetapy release 0.1.1. The repository also holds the source of this manuscript, the R scripts that produced the reference results, and the stored results themselves. `REPRODUCE.md` at the root of the repository gives the steps from a fresh clone.
+The software described here is dlnmpy as it stands in the repository at the commit of this manuscript, version 0.8.5.dev0, with mixmetapy release 0.1.1. It is release 0.8.4 plus the fixes found by the statistical review for this paper (@sec-found), none of which changes a number in the published analyses [CHECK: replace with release 0.8.5, its tag and its Zenodo DOI once released]. The repository also holds the source of this manuscript, the R scripts that produced the reference results, and the stored results themselves. `REPRODUCE.md` at the root of the repository gives the steps from a fresh clone.
 
 In Python 3.11, from the repository root: `pip install -r paper/requirements.txt`, then `pip install --no-deps -e .` so that the document runs the code in the clone, then `quarto render paper/manuscript.qmd`. Rendering reruns the worked examples in Section 4, the side-by-side comparison, the six published translations and their comparisons with R in Section 5, and the gridded example in Section 6. `pytest` reruns the unit fixtures. @sec-computational gives the times measured during the render of this copy.
 
@@ -673,7 +676,7 @@ This copy was rendered on `{python} host`. The references in @tbl-versions are @
 
 # Declarations
 
-**Code availability.** dlnmpy is at <https://github.com/Logic06183/dlnmpy> under GPL-2.0-or-later. The version described is release 0.8.4 (Git tag `v0.8.4`), archived on Zenodo with version DOI [10.5281/zenodo.23362540](https://doi.org/10.5281/zenodo.23362540) (all versions: [10.5281/zenodo.22876735](https://doi.org/10.5281/zenodo.22876735)) and installable with `pip install dlnmpy==0.8.4`. mixmetapy is at <https://github.com/Logic06183/mixmetapy> under GPL-3.0-or-later, release 0.1.1 [@parker2026mixmetapy]. The source of this manuscript and the scripts it runs are in the dlnmpy repository under `paper/`, `examples/` and `tools/`, at the commit tagged [CHECK: tag of the submitted manuscript].
+**Code availability.** dlnmpy is at <https://github.com/Logic06183/dlnmpy> under GPL-2.0-or-later. The version described is 0.8.5.dev0, release 0.8.4 with the fixes listed in `CHANGELOG.md` [CHECK: release 0.8.5 and cite its version DOI here]. The latest release, 0.8.4 (Git tag `v0.8.4`), is archived on Zenodo with version DOI [10.5281/zenodo.23362540](https://doi.org/10.5281/zenodo.23362540) (all versions: [10.5281/zenodo.22876735](https://doi.org/10.5281/zenodo.22876735)) and installable with `pip install dlnmpy==0.8.4`. mixmetapy is at <https://github.com/Logic06183/mixmetapy> under GPL-3.0-or-later, release 0.1.1 [@parker2026mixmetapy]. The source of this manuscript and the scripts it runs are in the dlnmpy repository under `paper/`, `examples/` and `tools/`, at the commit tagged [CHECK: tag of the submitted manuscript].
 
 **Data availability.** All data are public or simulated. The sources, pinned commits and SHA-256 hashes are given in @sec-repro and in each script in `examples/`.
 
@@ -712,7 +715,7 @@ assert (f"{r15['minperccountry']:.1f}", f"{r15['aftot'][0]:.2f}") == (f"{mmp:.1f
 six = ["lancet2015_vs_r.py", "bmcmrm2013_vs_r.py"] + [s for s, _ in four]
 n_six = sum(RUNS[s]["n"] for s in six)
 assert all(RUNS[s]["fail"] == 0 for s in six + ["side_by_side.py"])
-expected = [f"({n_sbs - n_cover} comparisons within a relative tolerance of 1e-8)",
+expected = [f"({n_sbs - n_cover} comparisons, each within 1e-10 + 1e-8|r| of R's value r)",
             f"median minimum mortality percentile of {mmp:.1f}",
             f"attributable fraction of {af_total:.2f}%",
             f"relative risks of {rr22} at 22 °C and {rr0} at 0 °C",

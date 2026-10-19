@@ -2,6 +2,8 @@
 
 ## 0.8.5 (unreleased)
 
+The development version on this branch is `0.8.5.dev0`.
+
 Found by a statistical review of the package for the manuscript. No number in the six reproduced analyses, the side-by-side comparisons or the manuscript changes. The fixes do change results for the inputs they concern (zero prior weights, near-collinear designs, separated matched sets, fine grids of large values), which is the point of them.
 
 **Fixed**
