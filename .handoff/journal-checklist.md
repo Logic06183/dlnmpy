@@ -30,9 +30,9 @@ Where the journal's rule is unknown, the target is a conservative default that m
 | # | Requirement | Journal rule | Target used | Manuscript state | Done |
 |---|---|---|---|---|---|
 | 1 | Article type | "software" (your brief) | `article-type: software` in YAML | set | yes |
-| 2 | Abstract length | unknown | at most 250 words | see log; was 383 | see REPORT |
+| 2 | Abstract length | unknown | at most 250 words | 250 (was 383); a render-time check keeps its numbers in step with the computed ones | yes |
 | 3 | Keywords | unknown | 4 to 6 | 6 | yes |
-| 4 | Main-text length | unknown | no change made | about 7,000 words plus code | check |
+| 4 | Main-text length | unknown | no change made | 22 pages A4 with code and tables | check against the limit |
 | 5 | Required sections | unknown | Introduction, Methods/framework, Software design, Illustrations, Validation, Limitations, Reproducibility / computational details, Declarations, References | all present | check |
 | 6 | Code availability | rerun before publication | repository URL, tag `v0.8.4`, Zenodo version DOI 10.5281/zenodo.23362540, concept DOI 10.5281/zenodo.22876735, licence | added | yes |
 | 7 | Data availability | unknown | sources, pinned commits, SHA-256, not redistributed | present | yes |
@@ -46,7 +46,7 @@ Where the journal's rule is unknown, the target is a conservative default that m
 | 15 | ORCID | unknown | present | present | yes |
 | 16 | Ethics | unknown | stated | present | yes |
 | 17 | Reference style | unknown | Quarto default (Chicago author-date via citeproc) with DOIs | DOIs on every reference that has one | check against journal CSL |
-| 18 | DOIs must resolve | checked automatically (your brief) | every DOI checked | see log | see REPORT |
+| 18 | DOIs must resolve | checked automatically (your brief) | every DOI checked | 14 confirmed through PubMed; the rest need `python tools/check_dois.py` on a normal connection | **you** |
 | 19 | File format | PDF upload plus repo link (your brief) | `paper/manuscript.pdf` | rendered | yes |
 | 20 | Licence of software | likely open | GPL-2.0-or-later, stated | present | yes |
 
