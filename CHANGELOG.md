@@ -2,7 +2,7 @@
 
 ## 0.8.5 (unreleased)
 
-Found by a statistical review of the package for the manuscript. No number reported by 0.8.4 changes.
+Found by a statistical review of the package for the manuscript. No number in the six reproduced analyses, the side-by-side comparisons or the manuscript changes. The fixes do change results for the inputs they concern (zero prior weights, near-collinear designs, separated matched sets, fine grids of large values), which is the point of them.
 
 **Fixed**
 
@@ -12,6 +12,7 @@ Found by a statistical review of the package for the manuscript. No number repor
 
 - `fit_glm` counted rows with a zero prior weight (`var_weights` or `freq_weights`) in the residual degrees of freedom, so the quasi-likelihood dispersion and every standard error were too small (by 13% with a quarter of the rows weighted zero). R's `glm.fit` counts only rows with a non-zero weight (`n.ok`), and so does `fit_glm` now. `res.df_resid` is set to the same `n - p`.
 - `fit_glm` tested for aliased columns with `lm.fit`'s tolerance, 1e-7. `glm.fit` uses `min(1e-7, epsilon / 1000)`, which is 1e-11 at its default `epsilon`, on the weighted design, so a column that R keeps (relative residual norm between 1e-11 and 1e-7 after orthogonalisation) was dropped, changing the coefficients, the residual degrees of freedom and the dispersion. `fit_glm` now uses `glm.fit`'s tolerance and prior weights. Exact duplicates are still dropped.
+- `fit_pgam`/`fit_pglm` made the same zero-weight error in the scale: the starting REML scale and the Fletcher scale divided by a count that included rows with zero prior weight, and the Fletcher correction was averaged over them, so the reported scale and every standard error were too small (by about 14% with a quarter of the rows weighted zero). `nobs` now counts rows with a non-zero weight.
 - `fit_clogit`'s step-halving path could stop at a point that is not a maximum, without saying so, when the likelihood had no finite maximum (separated data). It now raises a `ConvergenceWarning` that a coefficient may be infinite, as `coxph` does, and every result has `res.converged`.
 
 **Changed**
