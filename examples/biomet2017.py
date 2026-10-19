@@ -39,7 +39,8 @@ Runtime (2 cores): about 2 minutes by default, (a) for all five fits and (b)
 for the three London models; ``--quick`` runs (a) only, in about 1 minute.
 Most of that is building the miners' cr cross-basis: dlnmpy evaluates ``cr``
 one value at a time in Python, and Qx holds 3 million. ``--all`` adds (b) for
-the miners REML model, which took 26 minutes (28 in all): the Nelder-Mead stage of
+the miners REML model, which took 26 minutes (28 in all) on 2 cores and 12 (14 in all)
+on 4 cores under Linux: the Nelder-Mead stage of
 ``fit_pglm`` exhausts its 2000 iterations there, because the criterion,
 evaluated from warm-started P-IRLS, varies by ~5e-9 between calls at the same
 smoothing parameters, more than its 1e-9 stopping tolerance on the score.

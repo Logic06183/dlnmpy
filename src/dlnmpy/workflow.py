@@ -23,6 +23,7 @@ for anything the wrapper does not cover.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -32,7 +33,7 @@ import pandas as pd
 from ._rcompat import quantile7
 from .attribution import MMTResult, attr_table, mmt as _mmt
 from .core import CrossBasis, crossbasis, onebasis
-from .model import design_matrix, extract_coef_vcov, fit_glm
+from .model import design_matrix, extract_coef_vcov, fit_glm, get_link
 from .predict import CrossPred, CrossReduce, crosspred, crossreduce
 
 __all__ = ["dlnm", "DLNM", "percentile_knots", "percentile_of"]
@@ -193,7 +194,9 @@ class DLNM:
         """Overall cumulative association at exposure percentiles, relative
         to ``cen`` (default the MMT): the numbers a results table reports.
 
-        For a log or logit link the effect column is ``rr`` (exponentiated).
+        For a log or logit link the effect column is ``rr`` (exponentiated;
+        for a logit link it is an odds ratio, as R's ``allRRfit`` is, and
+        :meth:`summary` labels it OR).
         For any other link (a Gaussian model, say) it is ``effect``, on the
         scale of the linear predictor, since a ratio has no meaning there."""
         pct = np.atleast_1d(np.asarray(percentiles, dtype=float))
@@ -244,14 +247,20 @@ class DLNM:
 
     # --- report ---------------------------------------------------------------
     def summary(self, nsim: int = 2000, seed=0) -> str:
+        """A short report. The minimum-risk exposure and its interval are
+        those of the most recent :meth:`mmt` (also computed, with seed 0, by
+        :meth:`predict`, :meth:`rr_at` and the other methods that need a
+        reference); ``nsim`` and ``seed`` apply only when none has been
+        computed yet. The report states which draws it used."""
         m = self._mmt or self.mmt(nsim=nsim, seed=seed)
+        key = getattr(self, "_mmt_key", None)
         rr = self.rr_at([1, 99])
-        lab = "RR" if "rr" in rr.columns else "effect"
+        lab = ("OR" if get_link(self.model) == "logit" else "RR") if "rr" in rr.columns else "effect"
         est = rr["rr"] if "rr" in rr.columns else rr["effect"]
         lines = [f"DLNM: {self.outcome} ~ {self.exposure}, lag {self.lag[0]}-{self.lag[1]}, {self.family}",
                  f"observations: {self.x.size} (fitted: {self._nobs()})   cross-basis df: {self.cb.df[0]} x {self.cb.df[1]}",
                  f"minimum-risk {self.exposure}: {m.mmt:.1f} ({int(100 * m.ci_level)}% CI {m.low:.1f} to {m.high:.1f}), "
-                 f"percentile {m.percentile:.1f}",
+                 f"percentile {m.percentile:.1f}" + (f" ({key[2]} draws, seed {key[3]})" if key else ""),
                  f"{lab} at 1st percentile ({rr.iloc[0, 1]:.1f}): {est[0]:.3f} ({rr.low[0]:.3f}, {rr.high[0]:.3f})",
                  f"{lab} at 99th percentile ({rr.iloc[1, 1]:.1f}): {est[1]:.3f} ({rr.low[1]:.3f}, {rr.high[1]:.3f})"]
         try:
@@ -322,6 +331,11 @@ def dlnm(data: pd.DataFrame, outcome: str, exposure: str, lag, argvar=None, argl
     from .knots import logknots
     from .lag import mklag
 
+    if not data.index.is_unique:
+        # the design is joined to the data on the index; a repeated index
+        # (per-location frames stacked with pd.concat, say) would join every
+        # pair of rows sharing a label and multiply the data silently
+        data = data.reset_index(drop=True)
     x = np.asarray(data[exposure], dtype=float)
     y = np.asarray(data[outcome], dtype=float)
     lag_ = mklag(lag)
@@ -337,6 +351,16 @@ def dlnm(data: pd.DataFrame, outcome: str, exposure: str, lag, argvar=None, argl
     glab = None if group is None else np.asarray(data[group])
     if time is not None:
         t = _time_index(data[time])
+        # lags are taken by row, as R's crossbasis does: the rows of each
+        # series must be consecutive, equally spaced time points
+        for g in ([None] if glab is None else pd.unique(glab)):
+            tg = t if g is None else t[glab == g]
+            steps = np.diff(tg)
+            if steps.size and (np.any(steps <= 0) or not np.allclose(steps, steps[0])):
+                warnings.warn(f"'{time}' is not equally spaced and increasing"
+                              f"{'' if g is None else f' within {group} {g!r}'}; lags are taken by row, "
+                              "so gaps or unsorted rows make them span the wrong days", UserWarning, stacklevel=2)
+                break
         if glab is None:
             terms.append((f"ns_{time}", _season_spline(t, df_per_year, time)))
         else:

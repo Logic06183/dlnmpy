@@ -1,4 +1,9 @@
-"""Simulation-based (parametric bootstrap) uncertainty and model selection.
+"""Simulation-based uncertainty and model selection.
+
+The helpers named ``bootstrap`` and ``bootstrap_ci`` keep their names for
+compatibility, but they do not resample the data or refit the model: they
+are Monte Carlo simulation from the estimated sampling distribution of the
+coefficients, the empirical intervals of Gasparrini & Leone (2014).
 
 The delta-method intervals in :class:`~dlnmpy.predict.CrossPred` are exact
 on the scale of the linear predictor and adequate for relative risks. For
@@ -41,7 +46,7 @@ def bootstrap(fn, coef, vcov, nsim: int = 1000, seed=None, coefsim=None):
 
 
 def empirical_ci(samples, level: float = 0.95, axis: int = 0):
-    """Percentile interval of bootstrap samples: ``(low, high)``."""
+    """Percentile interval (R's quantile type 7) of simulated values: ``(low, high)``."""
     a = (1 - level) / 2
     return np.quantile(samples, a, axis=axis), np.quantile(samples, 1 - a, axis=axis)
 

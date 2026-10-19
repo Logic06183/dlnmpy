@@ -65,10 +65,11 @@ Regression test names a test in `tests/` that targets the behaviour. "none found
 | D47 | 0.8.5 (unreleased) | `model.fit_clogit` (step-halving path) | On separated data returned a non-stationary point with no warning | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_fit_clogit_reports_non_convergence_on_separated_data` | `coxph` warns that a coefficient may be infinite. |
 | D48 | 0.8.5 (unreleased) | `attribution.attr_table`, `DLNM.attributable` (moderate ranges) | Days exactly at the 2.5th/97.5th percentile counted in both the extreme and the moderate component (moderate heat about 60% too high for Chicago) | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_attr_table_extreme_and_moderate_ranges_partition_the_days` | The authors' paired `attrdl.R` calls double-count the same way. |
 | D49 | 0.8.5 (unreleased) | `penalized.fit_pglm` (scale) | Rows with zero prior weight counted in the REML starting scale and the Fletcher scale, and in its correction, so the scale and SEs were too small (about 14% with a quarter of rows at weight zero) | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_fit_pgam_scale_does_not_count_rows_with_zero_prior_weight` | Same error as D45, in the penalised fitter. |
+| D50 | 0.8.5 (unreleased) | `workflow.dlnm` (design join) | A repeated data-frame index (stacked per-location frames) joined every row sharing a label: three times the rows, SEs 1.24 times too small, RR 1.77 instead of 2.05 | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_dlnm_with_a_repeated_index_fits_each_row_once` | `design_matrix` now also warns about the same trap in user code. |
 
 ## Summary
 
-The ledger lists 49 defects: 41 fixed in releases 0.4.1 to 0.8.4, and 8 fixed for the unreleased 0.8.5. The counts after the table are for the 41 released fixes. The eight 0.8.5 defects (D42 to D49) were all silent, seven in the layers and one in a ported function, were all found by a statistical review of the package for the manuscript, and all have a targeted regression test.
+The ledger lists 50 defects: 41 fixed in releases 0.4.1 to 0.8.4, and 9 fixed for the unreleased 0.8.5. The counts after the table are for the 41 released fixes. The nine 0.8.5 defects (D42 to D50) were all silent, eight in the layers and one in a ported function, were all found by a statistical review of the package for the manuscript, and all have a targeted regression test.
 
 Their distribution by release is:
 
@@ -87,7 +88,7 @@ Their distribution by release is:
 | 0.8.2 | 3 |
 | 0.8.3 | 0 |
 | 0.8.4 | 3 |
-| 0.8.5 (unreleased) | 8 |
+| 0.8.5 (unreleased) | 9 |
 
 Of the 41, 28 were silent and 13 were not.
 

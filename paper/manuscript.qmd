@@ -26,6 +26,12 @@ format:
     fontsize: 11pt
     number-sections: true
     colorlinks: true
+    include-in-header:
+      text: |
+        \usepackage{fvextra}
+        \fvset{breaklines=true, breakanywhere=true}
+        \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,breakanywhere,commandchars=\\\{\}}
+        \renewenvironment{verbatim}{\VerbatimEnvironment\begin{Verbatim}[breaklines,breakanywhere]}{\end{Verbatim}}
   docx:
     number-sections: true
 execute:
@@ -201,7 +207,7 @@ The model is a quasi-Poisson regression of daily deaths on a cross-basis of temp
 
 ```{python}
 #| label: tbl-chicago-attr
-#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile. The point estimates do not depend on the simulation. The interval limits change with the seed at this number of simulations, so they are rounded to the power of ten at or above their Monte Carlo standard deviation, given in the text. Chicago temperatures, converted from whole degrees Fahrenheit, fall exactly on a cut-off on some days, and those days count in the extreme range only."
+#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile. The point estimates do not depend on the simulation. The interval limits change with the seed at this number of simulations, so each component's limits are rounded to the power of ten at or above their Monte Carlo standard deviation over ten seeds (see the text). Chicago temperatures, converted from whole degrees Fahrenheit, fall exactly on a cut-off on some days, and those days count in the extreme range only."
 #| echo: false
 t_fit = time.perf_counter() - t_fit0
 t_attr0 = time.perf_counter()
@@ -212,15 +218,15 @@ reps = [tab] + [fit.attributable(seed=s) for s in range(2027, 2036)]
 lim = np.stack([np.c_[r.an_low, r.an_high, r.af_low, r.af_high] for r in reps])   # seed x component x limit
 mc_sd = lim.std(axis=0, ddof=1)
 mc = {"total_an": mc_sd[0, :2].max(), "total_af": 100 * mc_sd[0, 2:].max(), "max_an": mc_sd[:, :2].max()}
-# round the limits to the power of ten at or above their Monte Carlo SD
-an_digits = -int(np.ceil(np.log10(mc["max_an"])))
-af_digits = max(0, -int(np.ceil(np.log10(100 * mc_sd[:, 2:].max()))))
+# round each component's limits to the power of ten at or above their Monte Carlo SD
+an_digits = [-int(np.ceil(np.log10(max(v, 1e-12)))) for v in mc_sd[:, :2].max(axis=1)]
+af_digits = [max(0, -int(np.ceil(np.log10(max(100 * v, 1e-12))))) for v in mc_sd[:, 2:].max(axis=1)]
 md(pd.DataFrame({
     "Component": tab.component,
     "AN": [f"{a:,.0f}" for a in tab.an],
-    "AN 95% eCI": [f"{round(l, an_digits):,.0f} to {round(h, an_digits):,.0f}" for l, h in zip(tab.an_low, tab.an_high)],
+    "AN 95% eCI": [f"{round(l, k):,.0f} to {round(h, k):,.0f}" for l, h, k in zip(tab.an_low, tab.an_high, an_digits)],
     "AF (%)": [f"{100*a:.2f}" for a in tab.af],
-    "AF 95% eCI": [f"{100*l:.{af_digits}f} to {100*h:.{af_digits}f}" for l, h in zip(tab.af_low, tab.af_high)],
+    "AF 95% eCI": [f"{100*l:.{k}f} to {100*h:.{k}f}" for l, h, k in zip(tab.af_low, tab.af_high, af_digits)],
 }))
 ```
 
@@ -257,7 +263,7 @@ model = dl.fit_glm("death ~ " + " + ".join(X.columns) + " + C(dow)",
 
 pred = dl.crosspred(cb, model, cen=21, by=1, name="cb")   # centred at 21 °C
 red = dl.crossreduce(cb, model, cen=21, name="cb")         # overall cumulative, for pooling
-pred.overall().query("var in [-20, 0, 33]").round(3)
+print(pred.overall().query("var in [-20, 0, 33]").round(3).to_string(index=False))
 ```
 
 ## Working with plain arrays
@@ -334,7 +340,7 @@ collected = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-
 n_tests = int(re.search(r"(\d+) tests? collected", collected)[1])
 ```
 
-`tools/make_fixtures.R` and its companions run dlnm, splines, mgcv, mixmeta, survival and the published `attrdl.R` and `findmin.R` on the vignette examples, and write the intermediate objects to `tests/fixtures/`: basis matrices for `{python} n_basis` basis specifications with and without values outside the fitting range, `{python} n_cb` cross-bases, `{python} n_pred` prediction objects, `{python} n_red` reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The test suite (`{python} n_tests` tests) compares against them. Tolerances are $10^{-10}$ to $10^{-12}$ for the bases and predictions, $10^{-6}$ to $10^{-8}$ for attribution and QAIC, and looser for the penalised fits against mgcv, which Section 8 discusses. `fit_clogit`, `dlnm()`, the bootstrap functions and plotting have no R fixture of their own.
+`tools/make_fixtures.R` and its companions run dlnm, splines, mgcv, mixmeta, survival and the published `attrdl.R` and `findmin.R` on the vignette examples, and write the intermediate objects to `tests/fixtures/`: basis matrices for `{python} n_basis` basis specifications with and without values outside the fitting range, `{python} n_cb` cross-bases, `{python} n_pred` prediction objects, `{python} n_red` reductions, the penalty matrices, and R's `pretty()`, `quantile()` and knot helpers. The test suite (`{python} n_tests` tests) compares against them. Tolerances are $10^{-10}$ to $10^{-12}$ for the bases and predictions, $10^{-6}$ to $10^{-8}$ for attribution and QAIC, and looser for the penalised fits against mgcv, which Section 8 discusses. `fit_clogit`, `dlnm()`, the simulation helpers in `dlnmpy.uncertainty` (named `bootstrap`, though they simulate the coefficients and do not resample the data) and plotting have no R fixture of their own.
 
 ## Side-by-side analyses
 
@@ -593,7 +599,7 @@ cells = gpd.GeoDataFrame(
     geometry=[box(27.4 + 0.5 * (k % 2), -27.1 + 0.25 * (k // 2),
                   27.9 + 0.5 * (k % 2), -26.85 + 0.25 * (k // 2)) for k in range(12)])
 gdf = cells.merge(meta, on="district", validate="1:1")
-gdf.drop(columns="geometry").round(2).head()
+print(gdf.drop(columns="geometry").round(2).head().to_string(index=False))
 ```
 
 Four points from this example matter in practice. First, `crossbasis` takes one exposure series at a time. A two-dimensional array is read as a matrix of exposure histories, one column per lag, so passing a (time, cell) array directly gives a wrong cross-basis without an error whenever the number of cells equals the number of lags plus one. The loop over districts avoids this. Second, the per-location outputs of `stack_reduced` and `blup` are arrays in the order the locations were supplied, so the analyst keeps the location key, as `meta` does here, and joins on it. Third, the MMT search needs the reduced coefficients paired with a `onebasis` of the exposure dimension and restricted to each location's own exposure range. Fourth, attribution from reduced coefficients uses the forward perspective, because reduced coefficients no longer carry the lag structure the backward perspective needs.
@@ -610,7 +616,7 @@ Two earlier Python efforts exist. pydlnm [@dessler_pydlnm] covers the cross-basi
 
 The package is at an alpha release. Its API, particularly the `dlnm()` workflow and the plotting functions, may still change.
 
-The penalised fitter chooses smoothing parameters with a general-purpose optimiser on numerical derivatives, where mgcv uses a Newton method on analytic ones [@wood2011reml]. On well-conditioned models the two reach the same answer. On flat problems they can reach different smoothing parameters with almost the same score, as on one London model in Section 5.3. On the badly conditioned miners model the search took 26 minutes and ended on a gradient check after the simplex search failed to meet its own stopping rule. Passing mgcv's smoothing parameters with `sp=` reproduces its coefficients. The log-determinant of the penalty in the criterion is computed directly from its eigenvalues, where mgcv uses the stable transformation of @wood2011reml, so it loses accuracy when two smoothing parameters differ by a factor of about $e^{20}$ or more. The selections reported here are far from that region. dlnmpy does not implement mgcv's UBRE criterion. Users who need mgcv's own smoothing-parameter selection should use R.
+The penalised fitter chooses smoothing parameters with a general-purpose optimiser on numerical derivatives, where mgcv uses a Newton method on analytic ones [@wood2011reml]. On well-conditioned models the two reach the same answer. On flat problems they can reach different smoothing parameters with almost the same score, as on one London model in Section 5.3. On the badly conditioned miners model the search is slow: in a run of `examples/biomet2017.py --all`, which the render does not include (its output is in `.handoff/biomet2017_all_output.txt`), it took 12 minutes on the machine described in @sec-computational and reached a REML score $1.2 \times 10^{-6}$ better than mgcv's, with smoothing parameters within 1.4% of mgcv's. Passing mgcv's smoothing parameters with `sp=` reproduces its coefficients. The log-determinant of the penalty in the criterion is computed directly from its eigenvalues, where mgcv uses the stable transformation of @wood2011reml, so it loses accuracy when two smoothing parameters differ by a factor of about $e^{20}$ or more. The selections reported here are far from that region. dlnmpy does not implement mgcv's UBRE criterion. Users who need mgcv's own smoothing-parameter selection should use R.
 
 mixmetapy implements the single-level model of mixmeta. The multilevel and longitudinal extensions of @sera2019mixmeta are not ported, and Bayesian estimation is not offered.
 
@@ -622,7 +628,7 @@ r_statmed = json.loads((REFERENCE / "statmed2014.json").read_text())["versions"]
 
 dlnmpy is slower than R in places. In the render of this copy, on the machine described in @sec-computational, the one-call Chicago fit with its summary took `{python} f"{t_fit:.0f}"` seconds and the attributable-risk table with 5,000 simulations `{python} f"{t_attr:.0f}"` seconds. The translation of @gasparrini2014elr took `{python} f"{RUNS['statmed2014.py']['seconds'] / 60:.0f}"` minutes, against `{python} f"{r_statmed:.0f}"` seconds for the R script that produced its reference results, which also refits each model to convergence. Most of the difference lies in `fit_clogit`, which evaluates the conditional likelihood one risk set at a time in Python through statsmodels, where `survival::coxph` uses compiled code, and in the `cr` basis, which evaluates its spline one value at a time in Python. Neither bottleneck changes a result.
 
-The intervals the package reports are conditional, as are those of the R functions it ports. The empirical intervals for attributable numbers and for the MMT simulate the cross-basis coefficients from their estimated sampling distribution, so they carry coefficient uncertainty only. The dispersion, the confounder terms and the model specification are held fixed, and attributable numbers are computed relative to the point estimate of the MMT, as in the authors' code [@gasparrini2015lancet]. BLUP-based location estimates treat the between-location covariance as known. Penalised fits report the Bayesian covariance conditional on the smoothing parameters, without mgcv's correction for their uncertainty [@wood2017gam], and attribution from a penalised fit inherits this. The MMT and its interval are searched on a grid, of step 0.1 by default, within the search range, so an interval that reaches the edge of the range is cut there. The simulated interval limits also carry Monte Carlo error, which is reported with the Chicago example in Section 4.
+The intervals the package reports are conditional, as are those of the R functions it ports. The empirical intervals for attributable numbers and for the MMT simulate the cross-basis coefficients from their estimated sampling distribution, so they carry coefficient uncertainty only. The dispersion, the confounder terms and the model specification are held fixed, and attributable numbers are computed relative to the point estimate of the MMT, as in the authors' code [@gasparrini2015lancet]. BLUP-based location estimates treat the between-location covariance as known, and their covariance is the formula of mixmeta, which dlnmpy reproduces and does not refine. Penalised fits report the Bayesian covariance conditional on the smoothing parameters, without mgcv's correction for their uncertainty [@wood2017gam], and attribution from a penalised fit inherits this. The MMT and its interval are searched on a grid, of step 0.1 by default, within the search range, so an interval that reaches the edge of the range is cut there. The simulated interval limits also carry Monte Carlo error, which is reported with the Chicago example in Section 4.
 
 The checks are only as broad as the analyses compared. A combination of arguments that no fixture, side-by-side analysis or translation exercises has been checked only through the tests of its parts. As Section 5 sets out, most of the R code used for comparison came from the same development process as the port, and the translated published scripts are the only fully independent reference.
 

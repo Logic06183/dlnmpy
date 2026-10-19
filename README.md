@@ -167,7 +167,7 @@ Besides the four R plot types (`overall`, `slices`, `contour`, `3d`), there are 
 
 ## Uncertainty beyond the delta method, and model selection
 
-`dlnmpy.uncertainty` gives parametric-bootstrap intervals for any function of the coefficients (`bootstrap(fn, coef, vcov)`, `simulate_pred`, `empirical_ci`), the route used for the MMT and attributable numbers, and `qaic` with `model_grid` to compare cross-basis specifications by quasi-AIC (Gasparrini et al. 2010).
+`dlnmpy.uncertainty` gives Monte Carlo simulation intervals (draws of the coefficients from their estimated sampling distribution, with no resampling of the data) for any function of the coefficients (`bootstrap(fn, coef, vcov)`, `simulate_pred`, `empirical_ci`), the route used for the MMT and attributable numbers, and `qaic` with `model_grid` to compare cross-basis specifications by quasi-AIC (Gasparrini et al. 2010).
 
 ## Beyond the R package: attributable risk and the MMT
 
@@ -283,7 +283,7 @@ examples/            vignette reproduction
 ## Roadmap
 
 1. Analytic derivatives for the penalised fitter (mgcv-speed smoothing parameter selection).
-2. Parametric-bootstrap intervals for any derived quantity, and a Bayesian route (same design matrix in PyMC/numpyro).
+2. Monte Carlo simulation intervals for any derived quantity, and a Bayesian route (same design matrix in PyMC/numpyro).
 3. Longitudinal/repeated-measures structures. (Multilevel meta-analysis belongs to mixmetapy's roadmap.)
 4. A Rust core with Python bindings, validated with the same fixtures.
 
