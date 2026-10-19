@@ -1,0 +1,93 @@
+Gasparrini et al. (2017) Biometrics, authors' commit 531c5c8
+reference: R version 4.3.3 (2024-02-29), dlnm 2.4.7, mgcv 1.9.1; dlnmpy 0.8.5.dev0
+  ex1_gam1: (a) fit at mgcv's sp in 44.9s, edf(cb) 43.5512 vs R 43.5512
+  ex1_gam2: (a) fit at mgcv's sp in 0.5s, edf(cb) 36.5404 vs R 36.5404
+  ex1_gam3: (a) fit at mgcv's sp in 0.4s, edf(cb) 10.6435 vs R 10.6435
+  ex2 data: 76827 person-years, prepared in 0.6s
+  ex2_gam_ubre: (a) fit at mgcv's sp in 0.6s, edf(cb) 8.0256 vs R 8.0256
+  ex2_gam_reml: (a) fit at mgcv's sp in 0.7s, edf(cb) 9.8122 vs R 9.8122
+
+(a) dlnmpy at mgcv's smoothing parameters
+  model         quantity                                 n   max diff      tol
+  ex1_gam1      penalty Svar                          8100   4.44e-16    1e-12
+  ex1_gam1      penalty Slag                          8100   3.89e-16    1e-12
+  ex1_gam1      ranks                                    2   0.00e+00    0e+00
+  ex1_gam1      REML score                               1   6.82e-11    1e-06
+  ex1_gam1      coefficients (scaled)                  237   9.83e-11    1e-06
+  ex1_gam1      standard errors (scaled)               237   4.69e-12    1e-07
+  ex1_gam1      vcov (cross-basis)                    8100   5.71e-14    1e-09
+  ex1_gam1      edf                                    237   1.50e-10    1e-06
+  ex1_gam1      scale                                    1   1.65e-13    1e-08
+  ex1_gam1      crosspred allfit                       161   6.21e-11    1e-06
+  ex1_gam1      crosspred allse                        161   5.80e-13    1e-07
+  ex1_gam2      addSlag Slag1                          100   3.20e-14    2e-11
+  ex1_gam2      penalty Svar                          8100   4.44e-16    1e-12
+  ex1_gam2      penalty Slag2                         8100   5.55e-16    1e-12
+  ex1_gam2      penalty Slag3                         8100   0.00e+00    1e-12
+  ex1_gam2      ranks                                    3   0.00e+00    0e+00
+  ex1_gam2      REML score                               1   8.29e-09    1e-06
+  ex1_gam2      coefficients (scaled)                  237   3.37e-10    1e-06
+  ex1_gam2      standard errors (scaled)               237   4.46e-12    1e-07
+  ex1_gam2      vcov (cross-basis)                    8100   3.29e-14    1e-09
+  ex1_gam2      edf                                    237   5.84e-10    1e-06
+  ex1_gam2      scale                                    1   3.19e-13    1e-08
+  ex1_gam2      crosspred allfit                       161   1.58e-10    1e-06
+  ex1_gam2      crosspred allse                        161   2.66e-13    1e-07
+  ex1_gam3      penalty Slag                           400   3.89e-16    1e-12
+  ex1_gam3      penalty Slag2                          400   5.55e-16    1e-12
+  ex1_gam3      penalty Slag3                          400   0.00e+00    1e-12
+  ex1_gam3      ranks                                    3   0.00e+00    0e+00
+  ex1_gam3      REML score                               1   4.12e-10    1e-06
+  ex1_gam3      coefficients (scaled)                  167   1.14e-10    1e-06
+  ex1_gam3      standard errors (scaled)               167   1.21e-12    1e-07
+  ex1_gam3      vcov (cross-basis)                     400   6.98e-17    1e-09
+  ex1_gam3      edf                                    167   3.37e-11    1e-06
+  ex1_gam3      scale                                    1   1.44e-14    1e-08
+  ex1_gam3      crosspred allfit                       161   5.30e-13    1e-06
+  ex1_gam3      crosspred allse                        161   1.61e-15    1e-07
+  ex2_data      rows, events, sum(age), sum(year)        4   0.00e+00    0e+00
+  ex2_data      column sums of Qx (rel)                 39   6.78e-15    1e-08
+  ex2_data      column sums of Qz (rel)                 39   3.30e-13    1e-08
+  ex2_data      sum of squares Qx, Qz (rel)              2   1.49e-15    1e-08
+  ex2_spec      knots of f(x) (rel)                     11   9.81e-16    1e-14
+  ex2_spec      addSlag Slag2                          100   4.22e-15    1e-12
+  ex2_gam_ubre  penalty Svar                         10000   5.55e-16    1e-12
+  ex2_gam_ubre  penalty Slag                         10000   6.11e-16    1e-12
+  ex2_gam_ubre  penalty Slag2                        10000   5.55e-16    1e-12
+  ex2_gam_ubre  ranks                                    3   0.00e+00    0e+00
+  ex2_gam_ubre  coefficients (scaled)                  111   3.10e-08    1e-06
+  ex2_gam_ubre  standard errors (scaled)               111   7.79e-09    1e-07
+  ex2_gam_ubre  vcov (cross-basis)                   10000   1.54e-10    1e-09
+  ex2_gam_ubre  edf                                    111   4.58e-09    1e-06
+  ex2_gam_ubre  crosspred allfit                        26   1.41e-11    1e-06
+  ex2_gam_ubre  crosspred allse                         26   4.78e-09    1e-07
+  ex2_gam_reml  penalty Svar                         10000   5.55e-16    1e-12
+  ex2_gam_reml  penalty Slag                         10000   6.11e-16    1e-12
+  ex2_gam_reml  penalty Slag2                        10000   5.55e-16    1e-12
+  ex2_gam_reml  ranks                                    3   0.00e+00    0e+00
+  ex2_gam_reml  REML score                               1   5.81e-09    1e-06
+  ex2_gam_reml  coefficients (scaled)                  111   2.36e-08    1e-06
+  ex2_gam_reml  standard errors (scaled)               111   5.35e-09    1e-07
+  ex2_gam_reml  vcov (cross-basis)                   10000   1.27e-13    1e-09
+  ex2_gam_reml  edf                                    111   2.52e-10    1e-06
+  ex2_gam_reml  crosspred allfit                        26   9.32e-11    1e-06
+  ex2_gam_reml  crosspred allse                         26   2.21e-12    1e-07
+
+(b) dlnmpy choosing its own smoothing parameters (REML); fails only if its score is worse than mgcv's by > 0.001
+  ex1_gam1: 36.5s, converged=True
+    sp dlnmpy/mgcv: 1.418e+04/1.418e+04, 3.349/3.349  (ratio 1, 1)
+    score dlnmpy - mgcv: -3.365e-11   edf(cb) 43.551 vs 43.551   max |RR diff| overall curve: 2.35e-06
+  ex1_gam2: 6.9s, converged=True
+    sp dlnmpy/mgcv: 2144/2149, 9206/9191, 3.028e+04/3.027e+04  (ratio 0.998, 1, 1)
+    score dlnmpy - mgcv: -2.887e-06   edf(cb) 36.541 vs 36.540   max |RR diff| overall curve: 8.78e-04
+  ex1_gam3: 7.8s, converged=True
+    sp dlnmpy/mgcv: 4.542e-08/1.146, 3.056e+06/3.056e+06, 1.052e+07/1.052e+07  (ratio 3.96e-08, 1, 1)
+    score dlnmpy - mgcv: -1.028e-03   edf(cb) 10.644 vs 10.643   max |RR diff| overall curve: 5.84e-06
+  ex2_gam_reml: 696.4s, converged=True
+    sp dlnmpy/mgcv: 2.454e+07/2.454e+07, 3672/3669, 8.809e+06/8.933e+06  (ratio 1, 1, 0.986)
+    score dlnmpy - mgcv: -1.242e-06   edf(cb) 9.812 vs 9.812   max |RR diff| overall curve: 3.91e-03
+    warning: RuntimeWarning: invalid value encountered in divide
+
+runtime 831s
+biomet2017: 67 comparisons with R, max abs difference 3.0e-07, 0 failures
+EXIT 0
