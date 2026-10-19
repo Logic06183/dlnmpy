@@ -158,7 +158,7 @@ Attributable numbers and fractions are computed from the fitted exposure-respons
 
 `onebasis` and `crossbasis` return objects that carry the attributes R stores on its matrices (the basis function, its arguments, knots, boundary knots, lag range and group structure), which `crosspred` and `crossreduce` need to rebuild the basis at prediction. The cross-basis columns are named `v{i}.l{j}` as in R.
 
-`crosspred` and `crossreduce` need only the coefficients and covariance of the cross-basis columns, so any fitting library can be used, and the two arrays can be passed directly with `coef=` and `vcov=`. For equivalence with R, `fit_glm` wraps statsmodels and reproduces `glm` on rank-deficient designs. Aliased columns are detected with the criterion of LINPACK's `dqrdc2` and dropped, the IRLS step is solved by QR, and the quasi-likelihood dispersion uses R's residual degrees of freedom. `fit_clogit` fits the conditional logistic model for case-crossover and matched designs by a step-halving Newton method, as `survival::coxph` does. `fit_pgam` and `fit_pglm` fit penalised models by penalised IRLS with the smoothing parameters chosen by REML or ML.
+`crosspred` and `crossreduce` need only the coefficients and covariance of the cross-basis columns, so any fitting library can be used, and the two arrays can be passed directly with `coef=` and `vcov=`. For equivalence with R, `fit_glm` wraps statsmodels and reproduces `glm` on rank-deficient designs. Aliased columns are detected with the criterion of LINPACK's `dqrdc2` and dropped, the IRLS step is solved by QR, and the quasi-likelihood dispersion uses R's residual degrees of freedom. `fit_clogit` fits the conditional logistic model for case-crossover and matched designs by Newton-Raphson on the exact conditional likelihood, which is `survival::clogit`'s default, and a step-halving Newton, as in `survival::coxph`, takes over when the plain Newton step overflows. `fit_pgam` and `fit_pglm` fit penalised models by penalised IRLS with the smoothing parameters chosen by REML or ML.
 
 `attrdl` and `findmin` port the published functions with the same arguments. `mmt` and `attr_table` wrap them into the summaries used in practice, with one shared set of simulated coefficients so that the cold, heat, extreme and moderate components are mutually consistent. `attrdl` also accepts a `group` argument for stacked series, which the reference function does not have. The lagged exposures are then formed within each series.
 
@@ -194,11 +194,11 @@ fit = dl.dlnm(chicago, outcome="death", exposure="temp", lag=21,
 print(fit.summary())
 ```
 
-The model is a quasi-Poisson regression of daily deaths on a cross-basis of temperature and lag, with a natural spline of time of 7 degrees of freedom per year and day of week. The temperature basis is a quadratic B-spline with knots at the 10th, 75th and 90th percentiles, and the lag basis a natural spline with log-spaced knots over lags 0 to 21. This is the specification @gasparrini2015lancet used in each location. The first 21 days have no complete lag history and are not fitted. `summary()` computes the MMT interval from 2,000 simulated coefficient sets with seed 0.
+The model is a quasi-Poisson regression of daily deaths on a cross-basis of temperature and lag, with a natural spline of time of 7 degrees of freedom per year and day of week. The temperature basis is a quadratic B-spline with knots at the 10th, 75th and 90th percentiles, and the lag basis a natural spline with log-spaced knots over lags 0 to 21. The temperature and lag bases are those @gasparrini2015lancet used in each location. Their seasonal spline had 8 degrees of freedom per year, and the 7 used here follow the dlnm vignette. The first 21 days have no complete lag history and are not fitted. `summary()` computes the MMT interval from 2,000 simulated coefficient sets with seed 0.
 
 ```{python}
 #| label: tbl-chicago-attr
-#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile."
+#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile. The point estimates do not depend on the simulation. The interval limits change with the seed at this number of simulations, so they are rounded to 100 deaths and 0.1 percentage points. As in the authors' published code, each extreme range and the moderate range next to it share their cut-off, and Chicago temperatures, converted from whole degrees Fahrenheit, fall exactly on it on some days, which then count in both."
 #| echo: false
 t_fit = time.perf_counter() - t_fit0
 t_attr0 = time.perf_counter()
@@ -207,9 +207,9 @@ t_attr = time.perf_counter() - t_attr0
 md(pd.DataFrame({
     "Component": tab.component,
     "AN": [f"{a:,.0f}" for a in tab.an],
-    "AN 95% eCI": [f"{l:,.0f} to {h:,.0f}" for l, h in zip(tab.an_low, tab.an_high)],
+    "AN 95% eCI": [f"{round(l, -2):,.0f} to {round(h, -2):,.0f}" for l, h in zip(tab.an_low, tab.an_high)],
     "AF (%)": [f"{100*a:.2f}" for a in tab.af],
-    "AF 95% eCI": [f"{100*l:.2f} to {100*h:.2f}" for l, h in zip(tab.af_low, tab.af_high)],
+    "AF 95% eCI": [f"{100*l:.1f} to {100*h:.1f}" for l, h in zip(tab.af_low, tab.af_high)],
 }))
 ```
 
@@ -460,9 +460,12 @@ Later comparisons found defects of the same kind. Translating @gasparrini2014elr
 ```{python}
 #| label: defect-counts
 #| echo: false
-ledger = [[c.strip() for c in row.strip().strip("|").split("|")]
-          for row in (REPO / "docs" / "defects.md").read_text().splitlines()
-          if re.match(r"\| D\d\d ", row)]
+rows = [[c.strip() for c in row.strip().strip("|").split("|")]
+        for row in (REPO / "docs" / "defects.md").read_text().splitlines()
+        if re.match(r"\| D\d\d ", row)]
+ledger = [r for r in rows if "unreleased" not in r[1]]        # fixed in 0.4.1 to 0.8.4
+review = [r for r in rows if "unreleased" in r[1]]           # found for this paper
+assert all(r[5] == "statistical review for the manuscript" and r[4] == "yes" for r in review)
 D = {"n": len(ledger),
      "silent": sum(r[4] == "yes" for r in ledger), "loud": sum(r[4] == "no" for r in ledger),
      "port": sum(r[6] == "port" for r in ledger), "layer": sum(r[6] == "layer" for r in ledger),
@@ -475,7 +478,7 @@ assert D["silent"] + D["loud"] == D["port"] + D["layer"] == D["n"]
 assert D["audit"] + D["repro"] + D["user"] + D["other"] == D["n"]
 ```
 
-`docs/defects.md` lists every defect with the release that fixed it, the function, whether it was silent, how it was found and the regression test that guards it. A defect is counted there if it gave a wrong number, crashed, hung, or rejected input that R accepts. By that rule there were `{python} D["n"]` between releases 0.4.1 and 0.8.4. Of these, `{python} D["silent"]` gave wrong results without an error and `{python} D["loud"]` crashed or refused valid input. By location, `{python} D["port"]` were in functions ported from R and `{python} D["layer"]` in the Python layers around them. The audits against R found `{python} D["audit"]`, the reproductions of published analyses `{python} D["repro"]`, a user's run `{python} D["user"]`, and the source of `{python} D["other"]` is not recorded. None was found by the unit fixtures, which is what they are for: they confirm that each piece is right once written, and the defects lay in how pieces were combined or in inputs the fixtures did not cover. The ledger names the `{python} D["untested"]` defects that have no targeted regression test.
+`docs/defects.md` lists every defect with the release that fixed it, the function, whether it was silent, how it was found and the regression test that guards it. A defect is counted there if it gave a wrong number, crashed, hung, or rejected input that R accepts. By that rule there were `{python} D["n"]` between releases 0.4.1 and 0.8.4. Of these, `{python} D["silent"]` gave wrong results without an error and `{python} D["loud"]` crashed or refused valid input. By location, `{python} D["port"]` were in functions ported from R and `{python} D["layer"]` in the Python layers around them. The audits against R found `{python} D["audit"]`, the reproductions of published analyses `{python} D["repro"]`, a user's run `{python} D["user"]`, and the source of `{python} D["other"]` is not recorded. None was found by the unit fixtures, which is what they are for: they confirm that each piece is right once written, and the defects lay in how pieces were combined or in inputs the fixtures did not cover. The ledger names the `{python} D["untested"]` defects that have no targeted regression test. A statistical review of the package for this paper found `{python} len(review)` more, all silent and all in edge cases that no published analysis reached. They are fixed, with regression tests, for the next release and listed in the same ledger.
 
 # Use with gridded and spatial data
 
@@ -554,7 +557,7 @@ Two earlier Python efforts exist. pydlnm [@dessler_pydlnm] covers the cross-basi
 
 The package is at an alpha release. Its API, particularly the `dlnm()` workflow and the plotting functions, may still change.
 
-The penalised fitter chooses smoothing parameters with a general-purpose optimiser on numerical derivatives, where mgcv uses a Newton method on analytic ones [@wood2011reml]. On well-conditioned models the two reach the same answer. On flat problems they can reach different smoothing parameters with almost the same score, as on one London model in Section 5.3. On the badly conditioned miners model the search took 26 minutes and ended on a gradient check after the simplex search failed to meet its own stopping rule. Passing mgcv's smoothing parameters with `sp=` reproduces its coefficients. dlnmpy does not implement mgcv's UBRE criterion. Users who need mgcv's own smoothing-parameter selection should use R.
+The penalised fitter chooses smoothing parameters with a general-purpose optimiser on numerical derivatives, where mgcv uses a Newton method on analytic ones [@wood2011reml]. On well-conditioned models the two reach the same answer. On flat problems they can reach different smoothing parameters with almost the same score, as on one London model in Section 5.3. On the badly conditioned miners model the search took 26 minutes and ended on a gradient check after the simplex search failed to meet its own stopping rule. Passing mgcv's smoothing parameters with `sp=` reproduces its coefficients. The log-determinant of the penalty in the criterion is computed directly from its eigenvalues, where mgcv uses the stable transformation of @wood2011reml, so it loses accuracy when two smoothing parameters differ by a factor of about $e^{20}$ or more. The selections reported here are far from that region. dlnmpy does not implement mgcv's UBRE criterion. Users who need mgcv's own smoothing-parameter selection should use R.
 
 mixmetapy implements the single-level model of mixmeta. The multilevel and longitudinal extensions of @sera2019mixmeta are not ported, and Bayesian estimation is not offered.
 
