@@ -26,6 +26,12 @@ format:
     fontsize: 11pt
     number-sections: true
     colorlinks: true
+    include-in-header:
+      text: |
+        \usepackage{fvextra}
+        \fvset{breaklines=true, breakanywhere=true}
+        \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,breakanywhere,commandchars=\\\{\}}
+        \renewenvironment{verbatim}{\VerbatimEnvironment\begin{Verbatim}[breaklines,breakanywhere]}{\end{Verbatim}}
   docx:
     number-sections: true
 execute:
@@ -201,7 +207,7 @@ The model is a quasi-Poisson regression of daily deaths on a cross-basis of temp
 
 ```{python}
 #| label: tbl-chicago-attr
-#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile. The point estimates do not depend on the simulation. The interval limits change with the seed at this number of simulations, so they are rounded to the power of ten at or above their Monte Carlo standard deviation, given in the text. As in the authors' published code, each extreme range and the moderate range next to it share their cut-off, and Chicago temperatures, converted from whole degrees Fahrenheit, fall exactly on it on some days, which then count in both."
+#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile. The point estimates do not depend on the simulation. The interval limits change with the seed at this number of simulations, so each component's limits are rounded to the power of ten at or above their Monte Carlo standard deviation over ten seeds (see the text). As in the authors' published code, each extreme range and the moderate range next to it share their cut-off, and Chicago temperatures, converted from whole degrees Fahrenheit, fall exactly on it on some days, which then count in both."
 #| echo: false
 t_fit = time.perf_counter() - t_fit0
 t_attr0 = time.perf_counter()
@@ -212,15 +218,15 @@ reps = [tab] + [fit.attributable(seed=s) for s in range(2027, 2036)]
 lim = np.stack([np.c_[r.an_low, r.an_high, r.af_low, r.af_high] for r in reps])   # seed x component x limit
 mc_sd = lim.std(axis=0, ddof=1)
 mc = {"total_an": mc_sd[0, :2].max(), "total_af": 100 * mc_sd[0, 2:].max(), "max_an": mc_sd[:, :2].max()}
-# round the limits to the power of ten at or above their Monte Carlo SD
-an_digits = -int(np.ceil(np.log10(mc["max_an"])))
-af_digits = max(0, -int(np.ceil(np.log10(100 * mc_sd[:, 2:].max()))))
+# round each component's limits to the power of ten at or above their Monte Carlo SD
+an_digits = [-int(np.ceil(np.log10(max(v, 1e-12)))) for v in mc_sd[:, :2].max(axis=1)]
+af_digits = [max(0, -int(np.ceil(np.log10(max(100 * v, 1e-12))))) for v in mc_sd[:, 2:].max(axis=1)]
 md(pd.DataFrame({
     "Component": tab.component,
     "AN": [f"{a:,.0f}" for a in tab.an],
-    "AN 95% eCI": [f"{round(l, an_digits):,.0f} to {round(h, an_digits):,.0f}" for l, h in zip(tab.an_low, tab.an_high)],
+    "AN 95% eCI": [f"{round(l, k):,.0f} to {round(h, k):,.0f}" for l, h, k in zip(tab.an_low, tab.an_high, an_digits)],
     "AF (%)": [f"{100*a:.2f}" for a in tab.af],
-    "AF 95% eCI": [f"{100*l:.{af_digits}f} to {100*h:.{af_digits}f}" for l, h in zip(tab.af_low, tab.af_high)],
+    "AF 95% eCI": [f"{100*l:.{k}f} to {100*h:.{k}f}" for l, h, k in zip(tab.af_low, tab.af_high, af_digits)],
 }))
 ```
 
@@ -257,7 +263,7 @@ model = dl.fit_glm("death ~ " + " + ".join(X.columns) + " + C(dow)",
 
 pred = dl.crosspred(cb, model, cen=21, by=1, name="cb")   # centred at 21 °C
 red = dl.crossreduce(cb, model, cen=21, name="cb")         # overall cumulative, for pooling
-pred.overall().query("var in [-20, 0, 33]").round(3)
+print(pred.overall().query("var in [-20, 0, 33]").round(3).to_string(index=False))
 ```
 
 ## Working with plain arrays
@@ -593,7 +599,7 @@ cells = gpd.GeoDataFrame(
     geometry=[box(27.4 + 0.5 * (k % 2), -27.1 + 0.25 * (k // 2),
                   27.9 + 0.5 * (k % 2), -26.85 + 0.25 * (k // 2)) for k in range(12)])
 gdf = cells.merge(meta, on="district", validate="1:1")
-gdf.drop(columns="geometry").round(2).head()
+print(gdf.drop(columns="geometry").round(2).head().to_string(index=False))
 ```
 
 Four points from this example matter in practice. First, `crossbasis` takes one exposure series at a time. A two-dimensional array is read as a matrix of exposure histories, one column per lag, so passing a (time, cell) array directly gives a wrong cross-basis without an error whenever the number of cells equals the number of lags plus one. The loop over districts avoids this. Second, the per-location outputs of `stack_reduced` and `blup` are arrays in the order the locations were supplied, so the analyst keeps the location key, as `meta` does here, and joins on it. Third, the MMT search needs the reduced coefficients paired with a `onebasis` of the exposure dimension and restricted to each location's own exposure range. Fourth, attribution from reduced coefficients uses the forward perspective, because reduced coefficients no longer carry the lag structure the backward perspective needs.
