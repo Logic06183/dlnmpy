@@ -431,6 +431,13 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
             "covariance or the criterion are NaN and 'converged' is False. Supply "
             "'sp' explicitly, or rescale the design.",
             ConvergenceWarning, stacklevel=2)
+    elif not converged:
+        # as mgcv warns when its outer iteration fails: the estimates are
+        # finite but the smoothing parameters may not maximise the criterion
+        warnings.warn(
+            "the smoothing-parameter search did not converge (smoothing parameters "
+            f"{np.array2string(np.exp(rho), precision=3)}); 'converged' is False. Check the "
+            "criterion near this point or supply 'sp' explicitly.", ConvergenceWarning, stacklevel=2)
     return PenalizedGLMResults(
         params=pd.Series(beta, index=exog_names), vcov=vcov, sp=np.exp(rho), scale=phi, reml_scale=reml_scale,
         edf=edf, deviance=out["dev"], reml=float(crit), method=method, family=fam.name, link=fam.link,

@@ -18,6 +18,9 @@ Found by a statistical review of the package for the manuscript. No number repor
 
 - `model_grid` warns when the candidate models were fitted to different numbers of observations. Models with different maximum lags drop different numbers of initial days, so their information criteria are not comparable without refitting on the common rows, as R's `AIC()` also warns.
 
+- `fit_pgam`/`fit_pglm` raise a `ConvergenceWarning` when the smoothing-parameter search does not converge, as mgcv warns when its outer iteration fails. Previously only `converged=False` said so.
+- Targeted tests for three earlier defects that had none (D16, D32 and D38 in `docs/defects.md`), in `tests/test_penalized_guards.py`.
+
 **Documentation**
 
 - The REML criterion of `fit_pgam` takes the log pseudo-determinant of the penalty directly from its eigenvalues, where mgcv uses Wood's (2011) stable transform. The docstring and `docs/penalized.md` no longer say the criterion is computed "exactly as" in mgcv, and state that this loses accuracy when smoothing parameters differ by a factor of about e^20 or more.
