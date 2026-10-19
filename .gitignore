@@ -15,8 +15,6 @@ examples/london.csv
 examples/uminers.csv
 .claude/
 paper/manuscript.html
-paper/manuscript.pdf
-paper/manuscript.docx
 paper/manuscript.tex
 paper/manuscript.aux
 paper/manuscript.log
