@@ -378,6 +378,8 @@ def sci(v):
         return "0"
     m, e = f"{v:.1e}".split("e")
     return f"${m} \\times 10^{{{int(e)}}}$"
+def msci(v):            # inline: Quarto escapes a plain string, so pass Markdown
+    return Markdown(sci(v))
 L = {"coef_b": g("(b) 2 meta-regression coef"), "coef_c": g("(c) 2 meta-regression coef"),
      "psi_b": g("(b) 2 Psi"), "psi_c": g("(c) 2 Psi"), "ll_b": g("(b) 2 meta-regression logLik"),
      "red_a": g("(a) 1 reduced coef"), "redv_a_rel": groups["(a) 1 reduced vcov"][2]}
@@ -399,7 +401,7 @@ md(pd.DataFrame([
 ], columns=["Stage", "Quantity", "Maximum absolute difference from R"]))
 ```
 
-The R script stores three versions of the R side: the authors' code as published, the same code with `glm.control(epsilon = 1e-14)`, and the second stage refitted with mixmeta's optimiser tolerance at $10^{-14}$. Against the published code, the first-stage coefficients differ by `{python} sci(L["red_a"])` and their covariance by `{python} sci(L["redv_a_rel"])` relative, which is R's default convergence tolerance acting mainly through the dispersion. The meta-regression estimates 30 parameters from 10 regions and its likelihood is flat, so R's default stopping rule leaves its coefficients about $10^{-5}$ from the optimum, and the last digits of any optimiser's answer depend on the platform. mvmeta, used in the published script, and mixmeta differ from each other by `{python} sci(mv_mx)` at their defaults, and agree to $6 \times 10^{-8}$ when both are run to the optimum [CHECK: not in the stored R results]. dlnmpy's log-likelihood is `{python} sci(abs(ll_py - ll_r))` `{python} "higher" if ll_py > ll_r else "lower"` than R's at its default, and its coefficients are `{python} sci(L["coef_c"])` from R's at the optimum.
+The R script stores three versions of the R side: the authors' code as published, the same code with `glm.control(epsilon = 1e-14)`, and the second stage refitted with mixmeta's optimiser tolerance at $10^{-14}$. Against the published code, the first-stage coefficients differ by `{python} msci(L["red_a"])` and their covariance by `{python} msci(L["redv_a_rel"])` relative, which is R's default convergence tolerance acting mainly through the dispersion. The meta-regression estimates 30 parameters from 10 regions and its likelihood is flat, so R's default stopping rule leaves its coefficients about $10^{-5}$ from the optimum, and the last digits of any optimiser's answer depend on the platform. mvmeta, used in the published script, and mixmeta differ from each other by `{python} msci(mv_mx)` at their defaults, and agree to $6 \times 10^{-8}$ when both are run to the optimum [CHECK: not in the stored R results]. dlnmpy's log-likelihood is `{python} msci(abs(ll_py - ll_r))` `{python} "higher" if ll_py > ll_r else "lower"` than R's at its default, and its coefficients are `{python} msci(L["coef_c"])` from R's at the optimum.
 
 ### Gasparrini and Armstrong (2013), *BMC Medical Research Methodology*
 
@@ -447,7 +449,17 @@ heat85 = re.search(r"RCP8\.5 heat\s+([-\d.]+)\s+\(([-\d.]+) to ([-\d.]+)\)", RUN
 
 : The four further reproductions. Tolerances are stated in each script, and differences are absolute unless marked relative. {#tbl-four}
 
-Three of these comparisons depend on how R's own fits stop. R's `glm` and `coxph` stop at a relative change of about $10^{-8}$ in the deviance, a few iterations before the maximum. For the London model of @gasparrini2014attr this leaves the authors' coefficients $1.5 \times 10^{-8}$ short, and for model 8 of @gasparrini2014elr $1.6 \times 10^{-6}$ standard errors short, which a reduction summed over 39 lags magnifies to $2 \times 10^{-4}$ standard errors. The R scripts therefore store each fit twice, as the authors' code leaves it and refitted to convergence. The tightest comparisons are against the converged fits, and the distance to the authors' fits is printed alongside. For @gasparrini2017pen the comparison is made at mgcv's smoothing parameters. When dlnmpy selects its own, its REML score was never worse than mgcv's: on one London model the first smoothing parameter went to a value near zero against mgcv's 1.15 with a slightly better score, because the score is almost flat in that direction once the other two lag penalties are present, and the other models agreed to within 1.4%. The published values also hold where the paper reports them. The projected change in the heat-attributable fraction from 2010 to 2019 to 2090 to 2099 under RCP8.5 in @vicedo2019tutorial is `{python} heat85[0]` percentage points (`{python} heat85[1]` to `{python} heat85[2]`), which the paper prints as 4.0 (0.7 to 6.8).
+```{python}
+#| label: r-stopping
+#| echo: false
+leone_coef_rel = float(re.search(r"cb coefficients\s+\d+\s+[\d.e+-]+\s+([\d.e+-]+)",
+                                 RUNS["leone2014.py"]["out"])[1])
+m8 = json.loads((REFERENCE / "statmed2014.json").read_text())["models"]["model8"]
+m8_short = float(np.max(np.abs(np.subtract(m8["published"]["coef"], m8["converged"]["coef"]))
+                        / np.asarray(m8["converged"]["se"])))
+```
+
+Three of these comparisons depend on how R's own fits stop. R's `glm` stops at a relative change of $10^{-8}$ in the deviance and `coxph` at $10^{-9}$ in the log-likelihood, a few iterations before the maximum. For the London model of @gasparrini2014attr this leaves the authors' coefficients `{python} msci(leone_coef_rel)` short in relative terms, and for model 8 of @gasparrini2014elr `{python} msci(m8_short)` standard errors short. The R scripts therefore store each fit twice, as the authors' code leaves it and refitted to convergence. The tightest comparisons are against the converged fits, and the distance to the authors' fits is printed alongside. For @gasparrini2017pen the comparison is made at mgcv's smoothing parameters. When dlnmpy selects its own, its REML score was never worse than mgcv's: on one London model the first smoothing parameter went to a value near zero against mgcv's 1.15 with a slightly better score, because the score is almost flat in that direction once the other two lag penalties are present, and the other models agreed to within 1.4%. The published values also hold where the paper reports them. The projected change in the heat-attributable fraction from 2010 to 2019 to 2090 to 2099 under RCP8.5 in @vicedo2019tutorial is `{python} heat85[0]` percentage points (`{python} heat85[1]` to `{python} heat85[2]`), which the paper prints as 4.0 (0.7 to 6.8).
 
 The translations depart from the authors' code in a few documented places, all listed at the top of each script. The internal `s(x, lag, bs = "cb")` smooths of @gasparrini2017pen and the simulation studies of @gasparrini2014elr and @gasparrini2017pen are not reproduced. The miners model of @gasparrini2017pen uses mgcv's default UBRE criterion, which dlnmpy does not implement, so a REML fit of the same model was added for the comparison of smoothing-parameter selection.
 
