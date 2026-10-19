@@ -1,16 +1,16 @@
 # Defect ledger, 0.1.0 to 0.8.4
 
-Built from `CHANGELOG.md` (0.1.0 to 0.8.4) each checked against `git log -p` (tags v0.7.0 to v0.8.3, and the untagged commits before them) and the `tests/` directory. Ledger as of 13 October 2026, updated 19 October 2026.
+This ledger is built from `CHANGELOG.md` (0.1.0 to 0.8.4), with each entry checked against `git log -p` (tags v0.7.0 to v0.8.3, and the untagged commits before them) and the `tests/` directory. It is current as of 13 October 2026 and was updated on 19 October 2026.
 
 ## Counting rule
 
 A defect is a behaviour that gave a wrong number, crashed, hung, or rejected valid input that R accepts, and which was then changed. Pure additions (new functions, exports, features), documentation-only changes, refactors with no behaviour change, and changes the CHANGELOG itself describes as fidelity with no observed effect are excluded. The excluded items are listed in their own section below, with the reason for each.
 
-Column key:
+Silent? is yes when the result was wrong with no error or warning at the point of the call, and no when the call crashed, raised an error, hung or refused the input.
 
-- **Silent?** yes = wrong result with no error or warning at the point of the call; no = crash, error, hang or refusal.
-- **Port / layer**: port = a function that exists in R `dlnm` or in the published `attrdl.R`, `findmin.R` or `mixmeta`; layer = fitting wrappers, the `dlnm()` workflow, plotting, uncertainty helpers, I/O and DataFrame interop. Plotting is classed as layer, even where it mirrors `plot.crosspred`.
-- **Regression test**: a test in `tests/` that targets the behaviour. "none found" means no such test exists in this repository.
+Port / layer is port for a function that exists in R `dlnm` or in the published `attrdl.R`, `findmin.R` or `mixmeta`. It is layer for fitting wrappers, the `dlnm()` workflow, plotting, uncertainty helpers, I/O and DataFrame interop. Plotting is classed as layer, even where it mirrors `plot.crosspred`.
+
+Regression test names a test in `tests/` that targets the behaviour. "none found" means no such test exists in this repository.
 
 ## Ledger
 
@@ -60,9 +60,7 @@ Column key:
 
 ## Summary
 
-41 defects.
-
-By release:
+The ledger lists 41 defects. Their distribution by release is:
 
 | Release | Defects |
 |---|---|
@@ -80,11 +78,11 @@ By release:
 | 0.8.3 | 0 |
 | 0.8.4 | 3 |
 
-Silent vs not: 28 silent, 13 not silent.
+Of the 41, 28 were silent and 13 were not.
 
-Port vs layer: 16 port, 25 layer.
+By location, 16 are in ported functions and 25 in the layers.
 
-How found:
+The defects were found as follows:
 
 | Source | Defects |
 |---|---|
@@ -94,11 +92,11 @@ How found:
 | other / not stated | 1 |
 | unit fixture | 0 |
 
-Port defects by source: 13 from the audits, 3 from reproductions (D03, D35, D41). Two of those three are R partial-argument matching.
+Of the port defects, 13 came from the audits and 3 from reproductions (D03, D35, D41). Two of those three are R partial-argument matching.
 
-Regression tests: 36 of 41 have a targeted test in `tests/`. No test found for D16, D17, D31, D32, D38 (D17's was removed in 0.8.0). D36's test is weak.
+Of the 41 defects, 36 have a targeted regression test in `tests/`. No test was found for D16, D17, D31, D32 or D38 (D17's was removed in 0.8.0). D36's test is weak.
 
-Borderline calls, in case a stricter or looser count is wanted: D11, D15, D27 and the convergence-flag entries D31/D32 are included but arguable; dropping all five gives 36. On the other side, the matplotlib 3.5 crash, the `dlnm(group=)` model change and the `__version__` drift are excluded but arguable (see below); adding all three gives 44.
+Some calls are borderline, in case a stricter or looser count is wanted. D11, D15, D27 and the convergence-flag entries D31/D32 are included but arguable, and dropping all five gives 36. On the other side, the matplotlib 3.5 crash, the `dlnm(group=)` model change and the `__version__` drift are excluded but arguable (see below), and adding all three gives 44.
 
 ## Excluded items
 
@@ -135,15 +133,15 @@ Borderline calls, in case a stricter or looser count is wanted: D11, D15, D27 an
 
 ## CHANGELOG issues found while checking
 
-1. **0.8.0 is headed "(unreleased)"**, but tag `v0.8.0` exists on ab2e977 with `version = "0.8.0"`, and that commit's message refers to "the 0.8.0 sdist". The entry has no date.
-2. **0.5.0 says "the pre-0.5.0 implementation would have reversed its published conclusion"** (Gasparrini & Armstrong 2013). The QAIC fix shipped in 0.4.1 (400bf01), and commit 99f999c itself calls the reproduction "a direct test of the fix in 0.4.1". It should read pre-0.4.1.
-3. **The 0.6.1 `__version__` fix is not in 0.6.1.** The 0.6.1 release commit (8534dcf) still hardcodes `__version__ = "0.6.0"` against `pyproject.toml` 0.6.1. The fix is in 01a475d, made afterwards, whose message says "the 0.6.1 wheel reported 0.6.0". It first shipped in 0.7.0. There is no `v0.6.1` tag to confirm what was uploaded.
-4. **0.6.0 says "the defects below were all in the Python-only layers"**, but the `qtest` p-value (D17) is in the mixmeta port.
-5. **0.7.0 says "everything below is in the Python layers"**, but six of its fourteen defects are in ported functions: `attrdl` (D22), `crossreduce` (D25), `cr`/`cbpen` (D26), `poly` (D27), `crossbasis(group=)` (D28) and `MixMeta` (D31). The claim that the numerical core needed no change holds only if "core" means the R-validated fixture paths.
-6. **0.7.0 says `converged` "now reports the optimiser's own status"**. For penalised fits this was incomplete: the objective mapped NaN to 1e100, so an all-NaN fit could still report `converged=True`, which 0.8.2 fixed (D36).
-7. **0.8.1 says "found by reproducing four more landmark papers"** but names three (Stat Med 2014, Leone 2014, Vicedo-Cabrera 2019). The fourth, Biometrics 2017, is the subject of 0.8.2.
-8. **0.8.1 calls `Bound=` a "rough edge" under "Changed"**. It raised `TypeError` on valid R input, which is a defect under this ledger's rule (D35).
-9. **0.8.1 says that with `simulate_coef(normals=)` you can "feed in R's draws and the two languages agree without Monte Carlo noise".** That was not true in general, because eigenvector signs differ between LAPACK builds (D39).
-10. **0.8.1 reports Stat Med 2014 agreeing on 197 quantities**, yet the step-halving path it added dropped the parameter names, so `crosspred(name=)` failed on exactly the model that needed it (D40). The 0.8.1 reproduction presumably worked around this. That cannot be checked from the repository.
+1. 0.8.0 is headed "(unreleased)", but tag `v0.8.0` exists on ab2e977 with `version = "0.8.0"`, and that commit's message refers to "the 0.8.0 sdist". The entry has no date.
+2. 0.5.0 says "the pre-0.5.0 implementation would have reversed its published conclusion" (Gasparrini & Armstrong 2013). The QAIC fix shipped in 0.4.1 (400bf01), and commit 99f999c itself calls the reproduction "a direct test of the fix in 0.4.1". It should read pre-0.4.1.
+3. The 0.6.1 `__version__` fix is not in 0.6.1. The 0.6.1 release commit (8534dcf) still hardcodes `__version__ = "0.6.0"` against `pyproject.toml` 0.6.1. The fix is in 01a475d, made afterwards, whose message says "the 0.6.1 wheel reported 0.6.0". It first shipped in 0.7.0. There is no `v0.6.1` tag to confirm what was uploaded.
+4. 0.6.0 says "the defects below were all in the Python-only layers", but the `qtest` p-value (D17) is in the mixmeta port.
+5. 0.7.0 says "everything below is in the Python layers", but six of its fourteen defects are in ported functions: `attrdl` (D22), `crossreduce` (D25), `cr`/`cbpen` (D26), `poly` (D27), `crossbasis(group=)` (D28) and `MixMeta` (D31). The claim that the numerical core needed no change holds only if "core" means the R-validated fixture paths.
+6. 0.7.0 says `converged` "now reports the optimiser's own status". For penalised fits this was incomplete: the objective mapped NaN to 1e100, so an all-NaN fit could still report `converged=True`, which 0.8.2 fixed (D36).
+7. 0.8.1 says "found by reproducing four more landmark papers" but names three (Stat Med 2014, Leone 2014, Vicedo-Cabrera 2019). The fourth, Biometrics 2017, is the subject of 0.8.2.
+8. 0.8.1 calls `Bound=` a "rough edge" under "Changed". It raised `TypeError` on valid R input, which is a defect under this ledger's rule (D35).
+9. 0.8.1 says that with `simulate_coef(normals=)` you can "feed in R's draws and the two languages agree without Monte Carlo noise". That was not true in general, because eigenvector signs differ between LAPACK builds (D39).
+10. 0.8.1 reports Stat Med 2014 agreeing on 197 quantities, yet the step-halving path it added dropped the parameter names, so `crosspred(name=)` failed on exactly the model that needed it (D40). The 0.8.1 reproduction presumably worked around this. That cannot be checked from the repository.
 
-For the 0.8.4 entry: fixing eigenvector signs in `_coefsim_from_normals` changes seeded Monte Carlo output from `attrdl(sim=True)`, `findmin` (and so `mmt`), `attr_table` and `uncertainty.bootstrap` relative to 0.8.3 for the same seed, wherever numpy returned an eigenvector whose largest entry was negative. The results are statistically equivalent but not bit-identical, and the CHANGELOG should say so.
+For the 0.8.4 entry, note that fixing eigenvector signs in `_coefsim_from_normals` changes seeded Monte Carlo output from `attrdl(sim=True)`, `findmin` (and so `mmt`), `attr_table` and `uncertainty.bootstrap` relative to 0.8.3 for the same seed, wherever numpy returned an eigenvector whose largest entry was negative. The results are statistically equivalent but not bit-identical, and the CHANGELOG should say so.

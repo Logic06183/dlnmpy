@@ -46,22 +46,22 @@ The public API mirrors the R package so that existing R analyses translate almos
 
 R finds the coefficients of a cross-basis in a fitted model by matching the object name in `coef(model)`. Python has no equivalent of a formula picking up a matrix by name, so the link is explicit:
 
-1. `cb.to_dataframe("cb")` gives a DataFrame with columns `cb_v1_l1, cb_v1_l2, ...`;
-2. these columns go into the design (with `dl.design_matrix` or a plain `join`);
+1. `cb.to_dataframe("cb")` gives a DataFrame with columns `cb_v1_l1, cb_v1_l2, ...`.
+2. These columns go into the design (with `dl.design_matrix` or a plain `join`).
 3. `crosspred(cb, model, name="cb")` finds the coefficients whose names match `cb` followed by `v{i}_l{j}` (or R's `v{i}.l{j}`) and orders them by `(i, j)`.
 
 If the model was fitted elsewhere (R, Stan, a Rust fitter), pass `coef` and `vcov` directly.
 
 ## Behavioural differences
 
-- **Rank deficiency.** R drops aliased design columns and reports `NA` coefficients. `fit_glm` does the same (the dropped names are in `results.aliased`); with `drop_aliased=False`, statsmodels' pseudo-inverse is used and standard errors can differ slightly on ill-conditioned designs.
-- **Categorical reference level.** patsy's `C(dow)` uses the alphabetically first level as reference; R uses the first factor level. Coefficients of the cross-basis are unaffected.
-- **Warnings and messages.** R prints a message when the centring value is chosen automatically; Python is silent (`pred.cen` holds the value).
-- **Row names.** For a matrix `at`, R labels predictions with the row names; Python uses the row index `0..n-1` in `pred.predvar`.
-- **`crosspred` for `mgcv::gam` smooths** built with `s(x, lag, bs="cb")` (`type="gam"` in R) is not implemented; the `paraPen` route is, through `fit_pgam` (see `penalized.md`).
-- **`ps` with too few df.** R builds `ps(df=4)` (degree 3) and only fails later, inside `crosspred()`, when the basis is rebuilt from its knots. `dlnmpy.ps` raises at construction with the minimum df in the message; no basis that R could predict from is refused.
-- **Missing values in `x`** produce NaN rows in the basis and cross-basis, as in R. `fit_glm` drops them (`missing="drop"`).
+- R drops aliased design columns and reports `NA` coefficients when the design is rank-deficient. `fit_glm` does the same (the dropped names are in `results.aliased`). With `drop_aliased=False`, statsmodels' pseudo-inverse is used and standard errors can differ slightly on ill-conditioned designs.
+- patsy's `C(dow)` uses the alphabetically first level as the reference level of a categorical variable, and R uses the first factor level. Coefficients of the cross-basis are unaffected.
+- R prints a message when the centring value is chosen automatically. Python raises a `CenteringWarning` (since 0.7.0), and `pred.cen` holds the value.
+- For a matrix `at`, R labels predictions with the row names, and Python uses the row index `0..n-1` in `pred.predvar`.
+- `crosspred` for `mgcv::gam` smooths built with `s(x, lag, bs="cb")` (`type="gam"` in R) is not implemented. The `paraPen` route is implemented, through `fit_pgam` (see `penalized.md`).
+- R builds `ps(df=4)` (degree 3), which has too few df, and only fails later, inside `crosspred()`, when the basis is rebuilt from its knots. `dlnmpy.ps` raises at construction with the minimum df in the message. No basis that R could predict from is refused.
+- Missing values in `x` produce NaN rows in the basis and cross-basis, as in R. `fit_glm` drops them (`missing="drop"`).
 
 ## Objects
 
-`OneBasis` and `CrossBasis` behave like numpy arrays (`np.asarray(cb)`, `cb.shape`, `cb[:, 0]`) and carry the attributes R stores on the matrix: `cb.df`, `cb.range`, `cb.lag`, `cb.argvar`, `cb.arglag`. `CrossPred` and `CrossReduce` are dataclasses whose fields follow the R list components; confidence limits and exponentiated versions are properties computed from `fit`, `se` and `ci_level`.
+`OneBasis` and `CrossBasis` behave like numpy arrays (`np.asarray(cb)`, `cb.shape`, `cb[:, 0]`) and carry the attributes R stores on the matrix: `cb.df`, `cb.range`, `cb.lag`, `cb.argvar`, `cb.arglag`. `CrossPred` and `CrossReduce` are dataclasses whose fields follow the R list components. Confidence limits and exponentiated versions are properties computed from `fit`, `se` and `ci_level`.

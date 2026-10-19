@@ -12,6 +12,6 @@ Regenerating fixtures needs R with the packages dlnm, splines and jsonlite:
 
     Rscript tools/make_fixtures.R
 
-Style: keep the Python close to the R source structure (one function per R routine, same names) so that the two can be read side by side. British spelling in prose. Docstrings say what the R equivalent is.
+For style, keep the Python close to the R source structure (one function per R routine, same names) so that the two can be read side by side. Use British spelling in prose. Docstrings say what the R equivalent is.
 
 Ports to other languages are welcome as separate repositories or as subdirectories (`rust/`, `julia/`) validated against the same `tests/fixtures/`.

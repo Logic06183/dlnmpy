@@ -1,19 +1,19 @@
 # Validation
 
-Two kinds of evidence that `dlnmpy` reproduces the R packages it ports.
+This page sets out two kinds of evidence that `dlnmpy` reproduces the R packages it ports.
 
-1. **Unit fixtures** — `tools/make_fixtures*.R` run R (`dlnm` 2.4.10, `mgcv`,
-   `mixmeta`, and Gasparrini's published `attrdl.R`/`findmin.R`) and write every
-   intermediate to `tests/fixtures/`. The test suite compares against those
+1. `tools/make_fixtures*.R` run R (`dlnm` 2.4.10, `mgcv`, `mixmeta`, and
+   Gasparrini's published `attrdl.R`/`findmin.R`) and write every intermediate
+   to `tests/fixtures/` as unit fixtures. The test suite compares against those
    numbers, and `tools/side_by_side.*` runs five complete analyses end to end.
-2. **A published analysis, reproduced whole** — the section below.
+2. A published analysis is reproduced whole, as described in the section below.
 
 The meta-analysis moved to the separate package
 [mixmetapy](https://github.com/Logic06183/mixmetapy) in 0.8.0, and its own
 evidence moved with it: the 12-location comparison with R's `mixmeta`, and
 the conventions that differ from `mvmeta`, are in its `docs/validation.md`.
-The two published analyses below stay here because they run both stages;
-their meta-analysis rows are repeated there. The numbers below were produced
+The two published analyses below stay here because they run both stages.
+Their meta-analysis rows are repeated there. The numbers below were produced
 before the split and reproduced unchanged after it (18 September 2026).
 
 ## Gasparrini et al. (2015) *Lancet*, England & Wales
@@ -40,7 +40,7 @@ Rerun with `python examples/lancet2015_vs_r.py` against `tests/reference/lancet2
 | Attributable fraction, cold    | **8.63%** (8.08-9.19)      | 8.630% (8.082-9.193)             |
 | Attributable fraction, heat    | **0.31%** (0.27-0.35)      | 0.308% (0.266-0.348)             |
 
-Earlier versions of this page gave intervals of 8.42-9.43 from an R run whose seed was not recorded; they cannot be reproduced and have been replaced. `examples/lancet_2015.py` draws its own samples and so differs from R in the second decimal of the intervals by Monte Carlo error.
+Earlier versions of this page gave intervals of 8.42-9.43 from an R run whose seed was not recorded. Those intervals cannot be reproduced and have been replaced. `examples/lancet_2015.py` draws its own samples and so differs from R in the second decimal of the intervals by Monte Carlo error.
 
 ### Agreement of each stage
 
@@ -58,8 +58,8 @@ Against the authors' code with the first-stage `glm` run to convergence (`glm.co
 | 4. Attributable | attributable deaths, per region and total | 0.22 deaths (1.5e-05 relative) |
 | 4. Attributable | attributable fraction | 3.4e-05 percentage points |
 
-- **The first stage, published settings.** With R's default `epsilon = 1e-8`, as in the published script, the reduced coefficients differ by 4.8e-10 and the covariance by 1.9e-6 relative. (An earlier version of this page said 1e-7.) R's default tolerance acts mainly through the dispersion.
-- **The meta-regression** estimates 30 parameters from 10 studies on a flat likelihood, so R's default stopping rule leaves it about 1e-5 from the optimum. `mvmeta` and `mixmeta` differ from each other by 5.0e-06 at their defaults and agree to 6e-8 when both are run with `reltol = 1e-14`. Against R at that optimum, Python's coefficients agree to 3.0e-6. (An earlier version of this page said dlnmpy "sits inside the spread of two R implementations"; the comparison at the optimum is the right one.)
+- In the first stage with R's default `epsilon = 1e-8`, as in the published script, the reduced coefficients differ by 4.8e-10 and the covariance by 1.9e-6 relative. (An earlier version of this page said 1e-7.) R's default tolerance acts mainly through the dispersion.
+- The meta-regression estimates 30 parameters from 10 studies on a flat likelihood, so R's default stopping rule leaves it about 1e-5 from the optimum. `mvmeta` and `mixmeta` differ from each other by 5.0e-06 at their defaults and agree to 6e-8 when both are run with `reltol = 1e-14`. Against R at that optimum, Python's coefficients agree to 3.0e-6. (An earlier version of this page said dlnmpy "sits inside the spread of two R implementations". The comparison at the optimum is the right one.)
 
 ### Conventions that differ from `mvmeta`
 
@@ -80,8 +80,8 @@ Both are cosmetic, and both will bite a line-by-line translation:
 
 The methodological paper behind the two-stage design, with code and data at
 [gasparrini/2013_gasparrini_BMCmrm_Rcodedata](https://github.com/gasparrini/2013_gasparrini_BMCmrm_Rcodedata).
-`examples/bmcmrm_2013.py` translates it. Same 10 regions as the Lancet example
-but a different question, so it covers what that one does not: `crossreduce`
+`examples/bmcmrm_2013.py` translates it. It uses the same 10 regions as the Lancet example
+to answer a different question, so it covers what that one does not: `crossreduce`
 in its overall *and* predictor-specific (`type="var"`) forms, three competing
 lag specifications (compared by QAIC in the script), random- and fixed-effects pooling,
 Cochran's Q and I², meta-regression on latitude, and prediction from pooled
@@ -99,9 +99,9 @@ coefficients through a `onebasis`.
 | QAIC, constant lag 0-3            | **406212.0**          | 406212.0              |
 | QAIC, constant lag 0-21           | **405966.3**          | 405966.3              |
 
-The R column is the authors' public script (updated December 2017), rerun on 24 Sep 2026 with R 4.3.3, dlnm 2.4.7 and mvmeta 1.0.3. The paper itself prints slightly different values from the original 2013 code: RR 1.101 (1.078-1.124) at 22 °C, 1.308 (1.245-1.375) at 0 °C, I² 63.7 / 16.0 / 63.4 %. The paper does not report QAIC; the script computes it.
+The R column is the authors' public script (updated December 2017), rerun on 24 Sep 2026 with R 4.3.3, dlnm 2.4.7 and mvmeta 1.0.3. The paper itself prints slightly different values from the original 2013 code: RR 1.101 (1.078-1.124) at 22 °C, 1.308 (1.245-1.375) at 0 °C, I² 63.7 / 16.0 / 63.4 %. The paper does not report QAIC. The script computes it.
 
-`python examples/bmcmrm2013_vs_r.py` compares every intermediate against `tests/reference/bmcmrm2013.json`, which `tools/reproduce_bmcmrm2013.R` writes from the authors' code (pinned commit d542c93): the five reductions in all ten regions, the pooled and fixed-effects fits, `Psi`, log-likelihoods, Q, degrees of freedom and p-values, the meta-regression on latitude and its Wald tests, all twelve pooled curves and the QAIC per region. 22,771 comparisons, no failures. Against the authors' code run to convergence the reductions agree to 1e-13, their covariances to 2e-11, QAIC totals to 1e-6 and pooled relative risks to 2e-6. Against R's meta-analyses run to their optimum (`reltol = 1e-14`), pooled coefficients agree to 6e-10 and meta-regression coefficients to 3e-7. At its defaults R stops short of the optimum of the 22 °C pooled fit: log-likelihood 168.244063, where R at the tight tolerance gives 168.2440677686 and Python 168.2440677685. (The earlier "67 of 68 quantities" summary is superseded by this script.)
+`python examples/bmcmrm2013_vs_r.py` compares every intermediate against `tests/reference/bmcmrm2013.json`, which `tools/reproduce_bmcmrm2013.R` writes from the authors' code (pinned commit d542c93): the five reductions in all ten regions, the pooled and fixed-effects fits, `Psi`, log-likelihoods, Q, degrees of freedom and p-values, the meta-regression on latitude and its Wald tests, all twelve pooled curves and the QAIC per region. There are 22,771 comparisons and no failures. Against the authors' code run to convergence the reductions agree to 1e-13, their covariances to 2e-11, QAIC totals to 1e-6 and pooled relative risks to 2e-6. Against R's meta-analyses run to their optimum (`reltol = 1e-14`), pooled coefficients agree to 6e-10 and meta-regression coefficients to 3e-7. At its defaults R stops short of the optimum of the 22 °C pooled fit: log-likelihood 168.244063, where R at the tight tolerance gives 168.2440677686 and Python 168.2440677685. (The earlier "67 of 68 quantities" summary is superseded by this script.)
 
 As in the Lancet example, comparing against the published script as written
 shows larger differences that are not the port's: R's `glm` defaults to
@@ -115,7 +115,7 @@ reduce to the single one above.
 
 The authors' script compares its three lag specifications by QAIC, so it is a direct test of
 `uncertainty.qaic`, which before 0.4.1 read the log-likelihood from
-statsmodels' `results.llf` — divided by the dispersion for a quasi family.
+statsmodels' `results.llf`, which is divided by the dispersion for a quasi family.
 Rerunning this comparison with the old implementation:
 
 | model | QAIC (0.4.1+) | QAIC (before) |
@@ -139,7 +139,7 @@ dropped from the fit (3,208 of 5,114 in a test with 200 missing exposures and
 
 ## The workflow layer against R (0.7.0)
 
-The layers above `dlnm`'s own functions (`dlnm()`, `fit_glm`, `fit_clogit`, `attrdl(group=)`) were compared against hand-written R on 14 September 2026 (R 4.3.3, `dlnm` 2.4.7, `survival`, `mixmeta` 1.2.2). Scripts are not in the repository because they are one-off; the numbers are:
+The layers above `dlnm`'s own functions (`dlnm()`, `fit_glm`, `fit_clogit`, `attrdl(group=)`) were compared against hand-written R on 14 September 2026 (R 4.3.3, `dlnm` 2.4.7, `survival`, `mixmeta` 1.2.2). The scripts are one-off and are not in the repository. The numbers are:
 
 | Comparison | Max abs | Max rel |
 |---|---|---|
@@ -152,9 +152,9 @@ The layers above `dlnm`'s own functions (`dlnm()`, `fit_glm`, `fit_clogit`, `att
 | same, `rr_at([1, 99])` RR and bounds, attributable fraction total/cold/heat | 5.1e-12, 1.1e-15 | 4.5e-12 |
 | `dlnm(group=)` on two stacked series vs `glm` with `crossbasis(group=)`, group intercept and block-diagonal `ns(time)`: 86 coefficients | 9.4e-14 | 9.3e-13 |
 
-One quirk of R worth knowing: `glm.control(epsilon = 1e-14)` also tightens the aliasing tolerance to `epsilon / 1000`, so an exact duplicate column is no longer detected and the fit does not converge. With `epsilon = 1e-10` R flags the alias and the two implementations agree as above.
+One quirk of R is worth knowing. `glm.control(epsilon = 1e-14)` also tightens the aliasing tolerance to `epsilon / 1000`, so an exact duplicate column is no longer detected and the fit does not converge. With `epsilon = 1e-10` R flags the alias and the two implementations agree as above.
 
-One definitional point: the grouped total attributable number is one pooled fraction, `sum(an) / sum(cases)` over rows with a complete lag history, applied to all cases. It is not the sum of per-group totals, which weight each group by its own ratio of all cases to cases with a complete history; the two differ by a fraction of a percent when the first `lag` days of a series are unusual. Per-group totals are obtained by calling `attrdl` per group.
+On a point of definition, the grouped total attributable number is one pooled fraction, `sum(an) / sum(cases)` over rows with a complete lag history, applied to all cases. Summing the per-group totals instead would weight each group by its own ratio of all cases to cases with a complete history. The two differ by a fraction of a percent when the first `lag` days of a series are unusual. Per-group totals are obtained by calling `attrdl` per group.
 
 ## Four further published analyses (0.8.4)
 
