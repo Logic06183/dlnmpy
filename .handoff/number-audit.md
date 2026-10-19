@@ -25,3 +25,14 @@ Each number the manuscript states, where it comes from, and whether it matched. 
 | 5.3 | mvmeta and mixmeta agree to 6e-8 at the optimum | not in `lancet2015.json` (no mvmeta fit at the tight tolerance is stored) | n/a | **[CHECK] in the manuscript** |
 | 5.3 | dlnmpy log-likelihood 1.3e-8 higher than R | script output: 52.3899754850 vs 52.3899754715 | 1.35e-8 higher | matched; now inline, sign included |
 | Abstract | 161,356 comparisons | sum over the six scripts: 2,545 + 22,771 + 102,224 + 22,690 + 11,060 + 66 | see final render | Lancet 2,545, Leone 22,690, Vicedo 11,060 confirmed so far |
+| 5.3 | Stat Med: coefficients and covariance to 1e-9, predictions within 1e-6 of R's SE, peak lags identical; 102,224 comparisons | `statmed2014.py` output | Table II 1.1e-9 (3.6e-11 SE), predictions 4.4e-7 SE, peak lag exact; 102,224, 0 failures | matched |
+| 5.3 | Leone: fractions to 1e-13, intervals from R's draws to 4e-6 relative; 22,690 | `leone2014.py` output | converged AF 9.3e-14 relative; eCI R draws 3.5e-6 relative; 22,690 | matched |
+| 5.3 | Vicedo: fractions to 1e-12, intervals to 1e-10; 11,060 | `vicedo2019.py` output | AF 8.8e-13; AF eCI 9.2e-11; 11,060 | matched |
+| 5.3 | London coefficients 1.5e-8 short (R default glm) | `leone2014.py` output, cb coefficients rel | 1.55e-8 | matched; now inline |
+| 5.3 | model 8 of Stat Med 1.6e-6 SE short | `statmed2014.json`, published vs converged / SE | 1.64e-6 | matched; now inline |
+| 5.3 | "a reduction summed over 39 lags magnifies [this] to 2e-4 standard errors" | recomputed: `crossreduce` of the stored published and converged model-8 fits | 1.9e-6 SE (reduced coefficients and overall curve) | **wrong; removed** |
+| 5.3 | `glm` and `coxph` stop at "about 1e-8 in the deviance" | R defaults (`glm.control` epsilon 1e-8; `coxph.control` eps 1e-9, as the script prints) | 1e-8 and 1e-9 | **imprecise; fixed** |
+| 5.3 / 5.4 | 161,356 "element-wise" comparisons (my own wording, introduced and then corrected) | script outputs | five scripts count elements; `biomet2017.py` counts 66 quantities (63 table rows covering 142,275 elements, plus 3 selection checks) | **corrected**: the text now states the counting rule, and the element total is computed |
+| 5.3, Biometrics row | coefficients to 3e-10 for London | `biomet2017.py` output | 3.37e-10 SE | **slightly understated; now "4e-10 standard errors"** |
+| 5.3 | other smoothing parameters within 1.4% of mgcv | `biomet2017.py` output, this machine | 0.2% | **not reproduced here; now computed from the run** |
+| 5.3 | dlnmpy REML score never worse than mgcv; London first sp near zero vs mgcv's 1.15 | `biomet2017.py` output | score differences -3.4e-11, -2.9e-6, -1.0e-3; mgcv sp 1.146 | matched; now computed |

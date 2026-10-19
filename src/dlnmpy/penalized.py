@@ -292,6 +292,10 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
     n, p = X.shape
     w = np.ones(n) if weights is None else np.asarray(weights, dtype=float)
     off = np.zeros(n) if offset is None else np.asarray(offset, dtype=float)
+    # rows with zero prior weight carry no information and, as in R, do not
+    # count as observations in a scale estimate
+    pos = w > 0
+    n_ok = int(np.count_nonzero(pos))
     fam = _Family(family)
     method = method.lower()
     if method not in ("reml", "ml"):
@@ -338,7 +342,7 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
         elif log_phi is not None:
             phi = float(np.exp(log_phi))
         else:
-            phi = float(np.sum(w * (y - mu) ** 2 / fam.variance(mu)) / (n - Mp))
+            phi = float(np.sum(w * (y - mu) ** 2 / fam.variance(mu)) / (n_ok - Mp))
         Dp = dev + pen
         crit = (Dp / (2 * phi) - fam.ls(y, w, phi)) + logdetA / 2 - logdetS / 2 - reml_ind * Mp / 2 * np.log(2 * np.pi * phi)
         return crit, dict(beta=beta, W=W, dev=dev, mu=mu, eta=eta, S=S, A=A, phi=phi, pen=pen)
@@ -409,9 +413,9 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
         # estimate rather than the REML scale parameter
         mu = out["mu"]
         pearson = float(np.sum(w * (y - mu) ** 2 / fam.variance(mu)))
-        scale_est = pearson / (n - float(np.sum(edf)))
+        scale_est = pearson / (n_ok - float(np.sum(edf)))
         dvar = np.ones_like(mu) if fam.link == "log" else (np.zeros_like(mu) if fam.link == "identity" else 1 - 2 * mu)
-        s_bar = max(-0.9, float(np.mean(dvar * (y - mu) / fam.variance(mu))))
+        s_bar = max(-0.9, float(np.mean((dvar * (y - mu) / fam.variance(mu))[pos])))
         if np.isfinite(s_bar):
             scale_est = scale_est / (1 + s_bar)
         reml_scale, phi = phi, scale_est
@@ -431,10 +435,17 @@ def fit_pglm(y, X, penalties, family: str = "poisson", method: str = "reml", sp=
             "covariance or the criterion are NaN and 'converged' is False. Supply "
             "'sp' explicitly, or rescale the design.",
             ConvergenceWarning, stacklevel=2)
+    elif not converged:
+        # as mgcv warns when its outer iteration fails: the estimates are
+        # finite but the smoothing parameters may not maximise the criterion
+        warnings.warn(
+            "the smoothing-parameter search did not converge (smoothing parameters "
+            f"{np.array2string(np.exp(rho), precision=3)}); 'converged' is False. Check the "
+            "criterion near this point or supply 'sp' explicitly.", ConvergenceWarning, stacklevel=2)
     return PenalizedGLMResults(
         params=pd.Series(beta, index=exog_names), vcov=vcov, sp=np.exp(rho), scale=phi, reml_scale=reml_scale,
         edf=edf, deviance=out["dev"], reml=float(crit), method=method, family=fam.name, link=fam.link,
-        converged=converged, fitted_values=out["mu"], linear_predictor=out["eta"], nobs=n,
+        converged=converged, fitted_values=out["mu"], linear_predictor=out["eta"], nobs=n_ok,
         penalty_names=list(penalty_names), exog_names=list(exog_names), endog=y, exog=X)
 
 

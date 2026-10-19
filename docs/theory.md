@@ -113,6 +113,10 @@ With the fitted cross-basis coefficients `eta` and a counterfactual reference `x
 
 The MMT is the `x` in a grid (by default the 1st to 99th percentiles at step 0.1) minimising the overall cumulative curve `Xall(x) eta`. Its uncertainty is the empirical distribution of the minimiser over draws `eta* ~ N(eta, V)`.
 
+### What the simulated intervals condition on
+
+The intervals of sections 9 and 10 carry the uncertainty of the cross-basis coefficients only. The dispersion, the confounder terms and the model specification are held fixed. Attributable numbers are computed relative to the point estimate of the MMT, as in the authors' code, so the uncertainty of the reference is not propagated into them. With BLUPs from a meta-analysis (section 11), the between-location covariance `Psi` is treated as known. For a penalised fit (section 12), `V` is the Bayesian covariance conditional on the smoothing parameters (mgcv's `Vp`, without the correction `Vc` for smoothing-parameter uncertainty). The MMT is restricted to the grid, so its interval cannot extend beyond the search range and piles up at a boundary when the minimum lies near it. Each limit also has Monte Carlo error, which falls as `1/sqrt(nsim)`. Report it, for example as the spread of the limits over a few seeds, and round the limits accordingly.
+
 ## 11. Multivariate meta-analysis (Gasparrini, Armstrong & Kenward 2012)
 
 This has been implemented in the separate package mixmetapy since 0.8.0. The specification stays here because it is the second stage of the design.

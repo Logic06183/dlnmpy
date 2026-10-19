@@ -38,7 +38,7 @@ try:                                    # single source of truth: pyproject.toml
 
     __version__ = _pkg_version("dlnmpy")
 except (ImportError, PackageNotFoundError):  # running from a source tree
-    __version__ = "0.8.0"
+    __version__ = "0.8.5.dev0"
 
 
 def __getattr__(name):

@@ -138,3 +138,26 @@ def test_attr_table_extreme_and_moderate_ranges_partition_the_days():
                       nsim=20, seed=1).set_index("component").an
     np.testing.assert_allclose(t["extreme cold"] + t["moderate cold"], t["cold"], rtol=1e-12)
     np.testing.assert_allclose(t["extreme heat"] + t["moderate heat"], t["heat"], rtol=1e-12)
+
+
+def test_fit_pgam_scale_does_not_count_rows_with_zero_prior_weight():
+    # as D45 for fit_glm: the Fletcher scale divided by n - edf with n counting
+    # zero-weight rows, and averaged its correction over them
+    pytest.importorskip("statsmodels")
+    import pandas as pd
+    rng = np.random.default_rng(7)
+    n = 800
+    x = 15 + 8 * np.sin(np.arange(n) / 58) + rng.normal(0, 2, n)
+    cb = dl.crossbasis(x, lag=4, argvar={"fun": "ps", "df": 6}, arglag={"fun": "ps", "df": 5})
+    d = pd.DataFrame({"y": rng.poisson(np.exp(2 + 0.002 * (x - 15) ** 2) * rng.gamma(4, 0.25, n))
+                      .astype(float)}).join(cb.to_dataframe("cb"))
+    f = "y ~ " + " + ".join(c for c in d.columns if c.startswith("cb"))
+    w = np.ones(n)
+    w[::4] = 0
+    a = dl.fit_pgam(f, d, penalties={"cb": dl.cbpen(cb)}, family="quasipoisson", sp=[2.0, 3.0], weights=w)
+    keep = d.index[w > 0]
+    b = dl.fit_pgam(f, d.loc[keep], penalties={"cb": dl.cbpen(cb)}, family="quasipoisson", sp=[2.0, 3.0])
+    np.testing.assert_allclose(np.asarray(a.params), np.asarray(b.params), rtol=1e-8, atol=1e-10)
+    np.testing.assert_allclose(a.scale, b.scale, rtol=1e-8)
+    np.testing.assert_allclose(np.asarray(a.bse), np.asarray(b.bse), rtol=1e-6)
+    assert a.nobs == b.nobs

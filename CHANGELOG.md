@@ -2,7 +2,9 @@
 
 ## 0.8.5 (unreleased)
 
-Found by a statistical review of the package for the manuscript. No number reported by 0.8.4 changes.
+The development version on this branch is `0.8.5.dev0`.
+
+Found by a statistical review of the package for the manuscript. No number in the six reproduced analyses, the side-by-side comparisons or the manuscript changes. The fixes do change results for the inputs they concern (zero prior weights, near-collinear designs, separated matched sets, fine grids of large values), which is the point of them.
 
 **Fixed**
 
@@ -12,6 +14,7 @@ Found by a statistical review of the package for the manuscript. No number repor
 
 - `fit_glm` counted rows with a zero prior weight (`var_weights` or `freq_weights`) in the residual degrees of freedom, so the quasi-likelihood dispersion and every standard error were too small (by 13% with a quarter of the rows weighted zero). R's `glm.fit` counts only rows with a non-zero weight (`n.ok`), and so does `fit_glm` now. `res.df_resid` is set to the same `n - p`.
 - `fit_glm` tested for aliased columns with `lm.fit`'s tolerance, 1e-7. `glm.fit` uses `min(1e-7, epsilon / 1000)`, which is 1e-11 at its default `epsilon`, on the weighted design, so a column that R keeps (relative residual norm between 1e-11 and 1e-7 after orthogonalisation) was dropped, changing the coefficients, the residual degrees of freedom and the dispersion. `fit_glm` now uses `glm.fit`'s tolerance and prior weights. Exact duplicates are still dropped.
+- `fit_pgam`/`fit_pglm` made the same zero-weight error in the scale: the starting REML scale and the Fletcher scale divided by a count that included rows with zero prior weight, and the Fletcher correction was averaged over them, so the reported scale and every standard error were too small (by about 14% with a quarter of the rows weighted zero). `nobs` now counts rows with a non-zero weight.
 - `fit_clogit`'s step-halving path could stop at a point that is not a maximum, without saying so, when the likelihood had no finite maximum (separated data). It now raises a `ConvergenceWarning` that a coefficient may be infinite, as `coxph` does, and every result has `res.converged`.
 
 **Changed**
@@ -19,8 +22,15 @@ Found by a statistical review of the package for the manuscript. No number repor
 - **Changes results.** `attr_table` (and so `DLNM.attributable`) counted a day whose exposure equals the 2.5th or 97.5th percentile exactly in both the extreme and the moderate component, because both ranges included the cut-off. Ties are common: Chicago temperatures, converted from whole degrees Fahrenheit, put 10 days on the 2.5th and 21 on the 97.5th percentile, and moderate heat was overstated by about 60%. Such days now count in the extreme component only, so the extreme and moderate components partition each side. Extreme components, total, cold and heat are unchanged. The authors' scripts call `attrdl.R` with two closed ranges and double-count in the same way.
 - `model_grid` warns when the candidate models were fitted to different numbers of observations. Models with different maximum lags drop different numbers of initial days, so their information criteria are not comparable without refitting on the common rows, as R's `AIC()` also warns.
 
+- `fit_pgam`/`fit_pglm` raise a `ConvergenceWarning` when the smoothing-parameter search does not converge, as mgcv warns when its outer iteration fails. Previously only `converged=False` said so.
+- An offline test tier, `tests/test_reference_offline.py`, runs with the ordinary suite. It reruns the second stage of Gasparrini et al. (2015) and of Gasparrini and Armstrong (2013) from R's own first-stage reductions, replays R's simulated coefficients of Vicedo-Cabrera et al. (2019), and checks every `attr_table` component and its intervals. Until now the stored R results of the published analyses were read only by the example scripts.
+- `tests/test_reproductions_slow.py` runs the six published reproductions and the side-by-side analyses under pytest (`DLNMPY_SLOW=1 pytest -m slow`, about an hour, needs network once).
+- `tools/side_by_side.py` no longer calls its check against the simulated truth "coverage": it reports the share of one replicate's prediction grid at which the band contains the true curve.
+- Targeted tests for three earlier defects that had none (D16, D32 and D38 in `docs/defects.md`), in `tests/test_penalized_guards.py`.
+
 **Documentation**
 
+- `docs/theory.md` states what the simulated intervals condition on (coefficient uncertainty only, the MMT as reference, Psi known for BLUPs, Vp for penalised fits, the MMT grid) and how to report their Monte Carlo error. `qaic` documents that it ignores prior weights, as `fqaic` does.
 - The REML criterion of `fit_pgam` takes the log pseudo-determinant of the penalty directly from its eigenvalues, where mgcv uses Wood's (2011) stable transform. The docstring and `docs/penalized.md` no longer say the criterion is computed "exactly as" in mgcv, and state that this loses accuracy when smoothing parameters differ by a factor of about e^20 or more.
 
 ## 0.8.4 (2026-10-13)

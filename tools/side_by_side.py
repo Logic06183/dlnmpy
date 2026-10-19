@@ -128,9 +128,11 @@ for k, st in enumerate(R["sim"]["stage1"], start=1):
     compare_pred(sec, p, st["pred"])
     report(sec, "reduce coef", r.coef, st["red_coef"], 1e-8)
     report(sec, "reduce vcov", r.vcov, st["red_vcov"], 1e-8)
-    # sanity against the simulated truth: 95% CI should cover the true curve at most points
-    cover = np.mean((p.alllow <= truth) & (truth <= p.allhigh))
-    rows.append((sec, "truth inside 95% CI", f"{cover:.0%} of grid points", "ok" if cover >= 0.8 else "CHECK"))
+    # sanity check against the simulated truth, not a coverage estimate: the
+    # share of grid points of this one replicate where the 95% band contains
+    # the true curve (pointwise bands of one fit are correlated along the grid)
+    inside = np.mean((p.alllow <= truth) & (truth <= p.allhigh))
+    rows.append((sec, "true curve inside band", f"{inside:.0%} of grid points", "ok" if inside >= 0.8 else "CHECK"))
 
 # ------------------------------------------------------------------------------
 w = max(len(r[1]) for r in rows)

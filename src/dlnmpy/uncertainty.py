@@ -104,6 +104,9 @@ def qaic(results) -> float:
     dispersion (Gasparrini, Armstrong & Kenward 2010; Peng et al. 2006).
     For a fit with ``scale = 1`` this reduces to the AIC.
 
+    The Poisson log-likelihood is summed over all fitted rows without prior
+    weights, as in Gasparrini's ``fqaic``; fit weighted models with care.
+
     The Poisson log-likelihood is evaluated at the fitted values rather than
     read off ``results.llf``: for a quasi family statsmodels divides the
     log-likelihood by the estimated dispersion, so ``results.llf`` is
