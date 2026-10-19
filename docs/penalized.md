@@ -4,7 +4,7 @@ The R package supports penalised DLNMs (Gasparrini, Scheipl, Armstrong & Kenward
 
 - `ps` (P-spline) and `cr` (cubic regression spline, a port of mgcv's `smooth.construct.cr.smooth.spec` and `crspl`) bases with their penalty matrices, matching R to 1e-14,
 - `cbpen(cb, add_slag=...)`, the expanded and rescaled penalties for the cross-basis (matches `cbPen`), and
-- `fit_pgam(formula, data, penalties={"cb": cbpen(cb)}, family=..., method="reml"|"ml")`, a penalised IRLS fitter whose smoothing parameters (and, for quasi families, the scale) maximise the Laplace-approximate REML or ML criterion of Wood (2011), implemented exactly as in `mgcv::gam.fit3` (`fit_pglm` is the array-level version).
+- `fit_pgam(formula, data, penalties={"cb": cbpen(cb)}, family=..., method="reml"|"ml")`, a penalised IRLS fitter whose smoothing parameters (and, for quasi families, the scale) maximise the Laplace-approximate REML or ML criterion of Wood (2011), with the terms of `mgcv::gam.fit3` (`fit_pglm` is the array-level version). One difference in how a term is evaluated: the log pseudo-determinant of the total penalty is taken directly from its eigenvalues, where mgcv uses Wood's (2011, Appendix B) stable similarity transform. The two agree to rounding error in ordinary use, but the direct route loses accuracy when two smoothing parameters differ by a factor of about e^20 or more (an error of 3e-3 in the criterion at a log-ratio of 25, growing quickly beyond).
 
 ```python
 cb = dl.crossbasis(temp, lag=21, argvar={"fun": "cr", "df": 8}, arglag={"fun": "ps", "df": 6})

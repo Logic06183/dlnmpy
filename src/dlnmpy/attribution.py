@@ -403,6 +403,9 @@ def attr_table(x, basis, cases, model=None, coef=None, vcov=None, model_link=Non
     # one set of simulated coefficients shared by every component
     if model is not None:
         c, v, model_link, _ = _resolve_coef(basis, model, None, None, model_link, name, "cb")
+        # as attrdl: an attributable fraction 1 - exp(-eta) needs a log or logit link
+        if model_link not in ("log", "logit"):
+            raise ValueError("'model' must have a log or logit link function")
     else:
         c, v = np.asarray(coef, float).ravel(), np.atleast_2d(np.asarray(vcov, float))
     coefsim = simulate_coef(c, v, nsim, seed)

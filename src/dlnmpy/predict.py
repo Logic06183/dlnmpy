@@ -169,6 +169,20 @@ def _resolve_coef(basis, model, coef, vcov, model_link, name, kind):
 
 
 # ----------------------------------------------------------------------------
+def match_index(values, value, what: str = "value") -> int:
+    """Row of ``values`` equal to ``value``, as R's lookup of a prediction by
+    name. Equality allows floating-point noise only (1e-10 relative), and the
+    nearest row wins: a looser match, such as ``np.isclose``'s default 1e-5,
+    picks the wrong row on a fine grid of large values (exposures near 1e5 at
+    unit spacing), silently."""
+    values = np.asarray(values, dtype=float)
+    d = np.abs(values - float(value))
+    ok = d <= 1e-10 * max(1.0, abs(float(value)))
+    if not ok.any():
+        raise ValueError(f"'{what}'={value} must match values used for prediction")
+    return int(np.flatnonzero(ok)[np.argmin(d[ok])])
+
+
 @dataclass
 class CrossPred:
     """Predictions from a DLNM (see :func:`crosspred`).
@@ -246,16 +260,10 @@ class CrossPred:
 
     # --- convenience --------------------------------------------------------
     def _var_index(self, var) -> int:
-        idx = np.nonzero(np.isclose(self.predvar, var))[0]
-        if idx.size == 0:
-            raise ValueError(f"'var'={var} must match values used for prediction")
-        return int(idx[0])
+        return match_index(self.predvar, var, "var")
 
     def _lag_index(self, lag) -> int:
-        idx = np.nonzero(np.isclose(self.predlag, lag))[0]
-        if idx.size == 0:
-            raise ValueError(f"'lag'={lag} must match values used for prediction")
-        return int(idx[0])
+        return match_index(self.predlag, lag, "lag")
 
     def overall(self, exp: bool | None = None):
         """DataFrame of the overall cumulative association."""

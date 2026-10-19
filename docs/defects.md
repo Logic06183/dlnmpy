@@ -57,10 +57,18 @@ Regression test names a test in `tests/` that targets the behaviour. "none found
 | D39 | 0.8.4 | `attribution.simulate_coef(normals=)` | Did not reproduce R's draws from R's normals, because eigenvector signs differ between LAPACK routines; `eigvecs=` added and signs now fixed deterministically | yes | reproduction of Gasparrini & Leone 2014 *BMC MRM* | layer | `test_fixes_0_8_4.py::test_simulate_coef_sign_does_not_depend_on_eigensolver`, `::test_simulate_coef_eigvecs_reproduces_mvrnorm_construction` | Classed as uncertainty helper; it is the `mvrnorm` step of `attrdl.R` and also feeds `attrdl`, `findmin`, `attr_table` and `bootstrap`. The tests check sign invariance and the mvrnorm construction, not R's actual draws; the R comparison is in `examples/leone2014.py`. Both tests fail on 0.8.3 and pass on 0.8.4. |
 | D40 | 0.8.4 | `model.fit_clogit` (step-halving path) | Lost the parameter names, so `crosspred(name=)` failed | no | reproduction of Gasparrini 2014 *Stat Med* | layer | `test_fixes_0_8_4.py::test_fit_clogit_keeps_names_on_step_halving_path` | Regression introduced by the D33 fix in 0.8.1 (`res.params = b` in 3c6c74f). Fails on 0.8.3, passes on 0.8.4. |
 | D41 | 0.8.4 | `core.normalise_args` (basis arguments) | `int=` (R partial match of `intercept`) was rejected | no | reproduction of Gasparrini 2014 *Stat Med* and Gasparrini et al. 2017 *Biometrics* | port | `test_fixes_0_8_4.py::test_int_is_partial_match_for_intercept` | Fails on 0.8.3, passes on 0.8.4. |
+| D42 | 0.8.5 (unreleased) | `CrossPred._var_index`, `_lag_index` (`slice_var`, plots, `DLNM.rr_at`) | Matched prediction values with `np.isclose` at rtol 1e-5, so on a fine grid of large values the neighbouring row was used | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_prediction_lookup_picks_the_exact_row_on_a_fine_grid_of_large_values` | R looks predictions up by name, exactly. |
+| D43 | 0.8.5 (unreleased) | `model.get_link` (used by `crosspred`) | statsmodels' `LogC` link was reported as `log`, so `crosspred` exponentiated it into a "relative risk" | yes | statistical review for the manuscript | port | `test_fixes_0_8_5.py::test_logc_link_is_not_reported_as_a_log_link` | Same function as D08. |
+| D44 | 0.8.5 (unreleased) | `attribution.attr_table`, `DLNM.attributable` | Accepted a model without a log or logit link and returned meaningless fractions (AF -23,826 for a Gaussian model); `attrdl` refuses | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_attr_table_refuses_a_model_without_a_log_or_logit_link` | |
+| D45 | 0.8.5 (unreleased) | `model.fit_glm` (dispersion) | Rows with zero prior weight counted in the residual df, so the quasi dispersion and SEs were too small (13% with a quarter of rows at weight zero) | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_fit_glm_dispersion_does_not_count_rows_with_zero_prior_weight` | R: `glm.fit`'s `n.ok`. |
+| D46 | 0.8.5 (unreleased) | `model.fit_glm` (aliasing) | Aliasing tested at `lm.fit`'s 1e-7, where `glm.fit` uses 1e-11 on the weighted design, so near-collinear columns R keeps were dropped | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_fit_glm_aliasing_uses_glm_fit_tolerance` | No stored comparison with R reached the affected range. |
+| D47 | 0.8.5 (unreleased) | `model.fit_clogit` (step-halving path) | On separated data returned a non-stationary point with no warning | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_fit_clogit_reports_non_convergence_on_separated_data` | `coxph` warns that a coefficient may be infinite. |
 
 ## Summary
 
-The ledger lists 41 defects. Their distribution by release is:
+The ledger lists 47 defects: 41 fixed in releases 0.4.1 to 0.8.4, and 6 fixed for the unreleased 0.8.5. The counts after the table are for the 41 released fixes. The six 0.8.5 defects (D42 to D47) were all silent, five in the layers and one in a ported function, were all found by a statistical review of the package for the manuscript, and all have a targeted regression test.
+
+Their distribution by release is:
 
 | Release | Defects |
 |---|---|
@@ -77,6 +85,7 @@ The ledger lists 41 defects. Their distribution by release is:
 | 0.8.2 | 3 |
 | 0.8.3 | 0 |
 | 0.8.4 | 3 |
+| 0.8.5 (unreleased) | 6 |
 
 Of the 41, 28 were silent and 13 were not.
 
@@ -130,6 +139,7 @@ Some calls are borderline, in case a stricter or looser count is wanted. D11, D1
 | 0.8.1 | `simulate_coef(normals=)` | Addition. Its claim to match R was wrong, which is D39 |
 | 0.8.2 | README and `docs/penalized.md` no longer claim 1e-4 agreement with mgcv end to end | Documentation |
 | 0.8.3 | Citation and Zenodo metadata | Metadata |
+| 0.8.5 (unreleased) | `model_grid` warns when the candidate fits used different numbers of rows | A safeguard. The criteria it ranked were computed correctly, only not comparable |
 
 ## CHANGELOG issues found while checking
 

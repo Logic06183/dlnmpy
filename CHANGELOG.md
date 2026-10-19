@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.8.5 (unreleased)
+
+Found by a statistical review of the package for the manuscript. No number reported by 0.8.4 changes.
+
+**Fixed**
+
+- `CrossPred` looked up a prediction value or lag with `np.isclose` at its default relative tolerance of 1e-5, so on a fine grid of large values (exposures near 1e5 at unit spacing, such as air pressure in pascals) `slice_var`, the slice plots, `overlay_slices` and `DLNM.rr_at` silently used the neighbouring row. Values now match to 1e-10 relative, nearest row first, as R's lookup by name does exactly.
+- The link detection reported statsmodels' `LogC` link, log(1 - p), as a log link, so `crosspred` exponentiated it and labelled a ratio of (1 - p) a relative risk. It is now reported as `"logc"` and not exponentiated.
+- `attr_table` (and so `DLNM.attributable`) accepted a model without a log or logit link and returned meaningless fractions, for example -23,826 for a Gaussian model, where `attrdl` refuses. It now refuses too.
+
+- `fit_glm` counted rows with a zero prior weight (`var_weights` or `freq_weights`) in the residual degrees of freedom, so the quasi-likelihood dispersion and every standard error were too small (by 13% with a quarter of the rows weighted zero). R's `glm.fit` counts only rows with a non-zero weight (`n.ok`), and so does `fit_glm` now. `res.df_resid` is set to the same `n - p`.
+- `fit_glm` tested for aliased columns with `lm.fit`'s tolerance, 1e-7. `glm.fit` uses `min(1e-7, epsilon / 1000)`, which is 1e-11 at its default `epsilon`, on the weighted design, so a column that R keeps (relative residual norm between 1e-11 and 1e-7 after orthogonalisation) was dropped, changing the coefficients, the residual degrees of freedom and the dispersion. `fit_glm` now uses `glm.fit`'s tolerance and prior weights. Exact duplicates are still dropped.
+- `fit_clogit`'s step-halving path could stop at a point that is not a maximum, without saying so, when the likelihood had no finite maximum (separated data). It now raises a `ConvergenceWarning` that a coefficient may be infinite, as `coxph` does, and every result has `res.converged`.
+
+**Changed**
+
+- `model_grid` warns when the candidate models were fitted to different numbers of observations. Models with different maximum lags drop different numbers of initial days, so their information criteria are not comparable without refitting on the common rows, as R's `AIC()` also warns.
+
+**Documentation**
+
+- The REML criterion of `fit_pgam` takes the log pseudo-determinant of the penalty directly from its eigenvalues, where mgcv uses Wood's (2011) stable transform. The docstring and `docs/penalized.md` no longer say the criterion is computed "exactly as" in mgcv, and state that this loses accuracy when smoothing parameters differ by a factor of about e^20 or more.
+
 ## 0.8.4 (2026-10-13)
 
 Six published analyses are now rerun from their authors' own code, with the R side committed. Four of them (Gasparrini 2014 *Stat Med*, Gasparrini & Leone 2014 *BMC MRM*, Vicedo-Cabrera, Sera & Gasparrini 2019 *Epidemiology*, Gasparrini et al. 2017 *Biometrics*) were reproduced for 0.8.1 and 0.8.2 without the scripts being committed. They are now `examples/statmed2014.py`, `leone2014.py`, `vicedo2019.py` and `biomet2017.py`, each with a `tools/reproduce_*.R` that pins the authors' repository and writes `tests/reference/*.json`. The two earlier reproductions gained stage-by-stage comparisons with R, `examples/lancet2015_vs_r.py` and `examples/bmcmrm2013_vs_r.py`. There are 161,356 comparisons with R in all, with no failures. `docs/validation.md` has the results and `docs/defects.md` lists every defect found since 0.4.1, with how it was found and the test that guards it. `paper/` holds the manuscript, an executable Quarto document that reruns all of this.

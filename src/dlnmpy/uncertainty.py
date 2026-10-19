@@ -137,15 +137,28 @@ def model_grid(specs, fit_fn, criterion=qaic):
     :func:`qaic`) scores each. Returns a DataFrame sorted by the criterion
     with the spec fields as columns, ``criterion`` and ``delta`` (difference
     from the best), and the fitted results in a ``results`` column.
+
+    An information criterion compares models fitted to the same observations.
+    Models with different maximum lags drop different numbers of initial days,
+    so a ``UserWarning`` is raised when the fits used different numbers of
+    rows (as R's ``AIC()`` warns); refit them on the common rows to compare.
     """
+    import warnings
+
     import pandas as pd
-    rows = []
+    rows, nobs = [], set()
     for spec in specs:
         res = fit_fn(spec)
         row = dict(spec) if isinstance(spec, dict) else {"spec": spec}
         row["criterion"] = float(criterion(res))
         row["results"] = res
         rows.append(row)
+        n = getattr(res, "nobs", None)
+        if n is not None:
+            nobs.add(int(n))
+    if len(nobs) > 1:
+        warnings.warn(f"models were fitted to different numbers of observations ({sorted(nobs)}); "
+                      "the criterion is not comparable across them", UserWarning, stacklevel=2)
     df = pd.DataFrame(rows).sort_values("criterion").reset_index(drop=True)
     df["delta"] = df["criterion"] - df["criterion"].iloc[0]
     return df

@@ -199,11 +199,12 @@ def plot_crosspred(pred, ptype=None, var=None, lag=None, ci: str = "area",
         sets bylag to 1 under cumul and indexes cumfit by name)."""
         if not cumul:
             return pred._lag_index(value)
-        idx = np.nonzero(np.isclose(lags, value))[0]
-        if idx.size == 0:
+        from .predict import match_index
+        try:
+            return match_index(lags, value, "lag")
+        except ValueError:
             raise ValueError(f"'lag'={value:g} must be one of the integer lags "
-                             f"{lags[0]:g}..{lags[-1]:g} for cumulative outcomes")
-        return int(idx[0])
+                             f"{lags[0]:g}..{lags[-1]:g} for cumulative outcomes") from None
 
     if ptype == "overall":
         ax = ax or plt.gca()

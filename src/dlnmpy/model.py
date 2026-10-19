@@ -95,6 +95,10 @@ def get_link(model, model_link: str | None = None) -> str | None:
         # compound names first: "log" is a substring of "cloglog" and
         # "loglog", so testing it earlier reports those as a log link and
         # makes crosspred exponentiate them into relative risks
+        # statsmodels' LogC is log(1 - p), not a log link: exponentiating it
+        # would report a ratio of (1 - p) as a relative risk
+        if cname == "logc":
+            return "logc"
         for cand in ("cloglog", "loglog", "logit", "log", "identity", "probit", "inverse"):
             if cand in cname:
                 return cand
@@ -132,11 +136,17 @@ def design_matrix(data, *terms, intercept: bool = True):
     return pd.concat(parts, axis=1)
 
 
+# glm.fit's aliasing tolerance, min(1e-7, epsilon / 1000) at the default epsilon = 1e-8
+GLM_ALIAS_TOL = 1e-11
+
+
 def aliased_columns(X, tol: float = 1e-7) -> list[int]:
     """Indices of linearly dependent columns of ``X``, detected the way R's
-    ``lm.fit``/``glm.fit`` do (LINPACK ``dqrdc2``): a column is aliased when
-    its norm after orthogonalisation against the previous kept columns falls
-    below ``tol`` times its original norm."""
+    QR does (LINPACK ``dqrdc2``): a column is aliased when its norm after
+    orthogonalisation against the previous kept columns falls below ``tol``
+    times its original norm. ``lm.fit`` uses ``tol = 1e-7``. ``glm.fit`` uses
+    ``min(1e-7, epsilon / 1000)``, which is 1e-11 at its default
+    ``epsilon = 1e-8``, and :func:`fit_glm` follows ``glm.fit``."""
     X = np.asarray(X, dtype=float)
     n, p = X.shape
     Q = np.zeros((n, 0))
@@ -177,8 +187,10 @@ def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool
     ``GLM.fit()`` accepts arbitrary keywords and would silently discard them.
 
     For the quasi families the dispersion is R's: the Pearson chi-square
-    divided by ``n - p`` with ``n`` the number of fitted rows and ``p`` the
-    number of non-aliased coefficients. This also holds with
+    divided by ``n - p`` with ``n`` the number of fitted rows with a non-zero
+    prior weight and ``p`` the number of non-aliased coefficients, and
+    ``res.df_resid`` is set to ``n - p`` to match. Aliased columns are found
+    with ``glm.fit``'s tolerance (see :func:`aliased_columns`). This also holds with
     ``freq_weights``, where statsmodels itself would divide by
     ``sum(weights) - p``; R's ``glm(weights=)`` counts rows, not weight.
     """
@@ -202,8 +214,15 @@ def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool
     model = smf.glm(formula, data=data, family=family_obj, missing="drop",
                     offset=offset, exposure=exposure,
                     freq_weights=freq_weights, var_weights=var_weights)
+    # prior weights, as R's glm(weights=): rows with zero weight do not count
+    # towards the residual degrees of freedom (glm.fit's n.ok)
+    prior_w = np.ones(model.exog.shape[0])
+    for w in (getattr(model, "freq_weights", None), getattr(model, "var_weights", None)):
+        if w is not None:
+            prior_w = prior_w * np.asarray(w, dtype=float)
     if drop_aliased:
-        bad = aliased_columns(model.exog)
+        # glm.fit tests aliasing on the weighted design with tol = epsilon/1000
+        bad = aliased_columns(model.exog * np.sqrt(prior_w)[:, None], tol=GLM_ALIAS_TOL)
         if bad:
             import pandas as pd
             keep = [i for i in range(model.exog.shape[1]) if i not in bad]
@@ -234,9 +253,11 @@ def fit_glm(formula: str, data, family: str = "quasipoisson", drop_aliased: bool
         # can be smaller for ill-conditioned designs. Re-fit with the R
         # dispersion so that standard errors agree.
         p = res.params.size
-        disp = float(res.pearson_chi2 / (res.nobs - p))
+        n_ok = int(np.count_nonzero(prior_w))
+        disp = float(res.pearson_chi2 / (n_ok - p))
         if not np.isclose(disp, res.scale):
             res = model.fit(scale=disp, start_params=res.params, **kwargs)
+        getattr(res, "_results", res).df_resid = n_ok - p   # R's df.residual
     res.aliased = getattr(model, "aliased", [])
     return res
 
@@ -256,6 +277,7 @@ def fit_clogit(y, X, groups, **kwargs):
     ``lag`` of each series). The number dropped is stored as ``res.n_dropped``.
     """
     from statsmodels.discrete.conditional_models import ConditionalLogit
+    from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
     kwargs.setdefault("method", "newton")
     kwargs.setdefault("tol", 1e-12)
@@ -287,28 +309,39 @@ def fit_clogit(y, X, groups, **kwargs):
         # can overflow on the first step and never recover -- silently, as NaN
         # coefficients rather than an error. R's coxph safeguards its Newton
         # with step-halving; do the same and start again from zero.
-        b = _newton_clogit(model, b.size)
+        b, converged = _newton_clogit(model, b.size)
         inner = getattr(res, "_results", res)
         inner.params = b
         # keep the names, so that crosspred(cb, res, name=...) finds the
         # cross-basis columns on this path as on the ordinary one
         import pandas as pd
         res.params = pd.Series(b, index=names) if names is not None else b
+    else:
+        converged = bool(getattr(res, "mle_retvals", {}).get("converged", True))
+    if not converged:
+        warnings.warn("conditional logistic regression did not converge: the likelihood stopped "
+                      "improving away from a stationary point, so a coefficient may be infinite "
+                      "(as with separated data); check res.converged", ConvergenceWarning, stacklevel=2)
     cov = _clogit_cov(model.score, b)
     inner = getattr(res, "_results", res)  # results may be wrapped
     inner.normalized_cov_params = cov
     inner.cov_params_default = cov
     res.n_dropped = n_dropped
+    res.converged = converged
     return res
 
 
-def _newton_clogit(model, p: int, maxiter: int = 200, tol: float = 1e-11) -> np.ndarray:
+def _newton_clogit(model, p: int, maxiter: int = 200, tol: float = 1e-11):
     """Newton-Raphson with step-halving, as ``survival::coxph`` does it.
 
     Used when statsmodels' unsafeguarded Newton diverges. Halving the step
     whenever the log-likelihood fails to improve (or is not finite) keeps the
     iteration inside the region where ``exp(X @ beta)`` is representable.
+    Returns the coefficients and whether the iteration converged; it has not
+    when the step-halving finds no improvement before the steps become small,
+    which happens when a coefficient is heading to infinity.
     """
+    converged = False
     b = np.zeros(p)
     ll = float(model.loglike(b))
     for _ in range(maxiter):
@@ -331,11 +364,12 @@ def _newton_clogit(model, p: int, maxiter: int = 200, tol: float = 1e-11) -> np.
         delta = np.max(np.abs(cand - b) / np.maximum(np.abs(b), 1e-8))
         b, ll = cand, cand_ll
         if delta < tol:
+            converged = True
             break
     if not np.all(np.isfinite(b)):
         raise RuntimeError("conditional logistic regression did not converge; "
                            "check the scale of the design columns")
-    return b
+    return b, converged
 
 
 def _clogit_cov(score, b) -> np.ndarray:

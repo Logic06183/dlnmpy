@@ -6,14 +6,17 @@ provides the piece that was missing: a penalised iteratively reweighted
 least squares fitter whose smoothing parameters (and, for quasi families,
 the scale) are chosen by maximising the Laplace-approximate restricted
 marginal likelihood of Wood (2011), the criterion ``gam(method="REML")``
-uses. The criterion is implemented exactly as in ``mgcv::gam.fit3``:
+uses. The criterion has the terms of ``mgcv::gam.fit3``:
 
     V(rho) = D_p/(2 phi) - l_s(phi) + log|X'WX + S_rho|/2 - log|S_rho|_+/2
              - M_p log(2 pi phi)/2
 
 with ``D_p`` the penalised deviance, ``l_s`` the saturated log-likelihood,
 ``S_rho = sum_k exp(rho_k) S_k``, ``|.|_+`` the generalised determinant and
-``M_p`` the dimension of the penalty null space. Unlike mgcv it uses a
+``M_p`` the dimension of the penalty null space. ``log|S_rho|_+`` is taken
+directly from the eigenvalues of ``S_rho``, where mgcv uses the stable
+transform of Wood (2011, appendix B); it loses accuracy when smoothing
+parameters differ by a factor of about e^20 or more. Unlike mgcv it uses a
 generic quasi-Newton optimiser on ``rho`` (numerical derivatives), which is
 adequate for the two or three smoothing parameters of a cross-basis; the
 result is validated against ``gam`` in ``tests/test_penalized.py``.
