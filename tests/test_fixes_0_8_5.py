@@ -123,3 +123,18 @@ def test_fit_clogit_reports_non_convergence_on_separated_data():
     yy[::4] = 1
     ok = dl.fit_clogit(yy, pd.DataFrame({"x": rng.normal(size=400)}), g)
     assert ok.converged is True
+
+
+def test_attr_table_extreme_and_moderate_ranges_partition_the_days():
+    # temperatures converted from whole degrees Fahrenheit repeat, so days sit
+    # exactly on the 2.5th and 97.5th percentiles and were counted twice
+    d = dl.datasets.chicago_nmmaps()
+    x = d.temp.to_numpy()
+    plo, phi = dl.quantile7(x, [0.025, 0.975])
+    assert (x == plo).sum() > 0 and (x == phi).sum() > 0
+    cb = dl.crossbasis(x, lag=0, argvar={"fun": "ns", "df": 3})     # lag 0: AN is additive over days
+    coef, vcov = np.array([-0.2, -0.3, 0.4]), np.eye(3) * 1e-4
+    t = dl.attr_table(x, cb, d.death, coef=coef, vcov=vcov, model_link="log", cen=20,
+                      nsim=20, seed=1).set_index("component").an
+    np.testing.assert_allclose(t["extreme cold"] + t["moderate cold"], t["cold"], rtol=1e-12)
+    np.testing.assert_allclose(t["extreme heat"] + t["moderate heat"], t["heat"], rtol=1e-12)

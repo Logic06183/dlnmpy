@@ -377,6 +377,11 @@ def attr_table(x, basis, cases, model=None, coef=None, vcov=None, model_link=Non
     Returns a pandas DataFrame with columns ``component``, ``range``,
     ``an``, ``an_low``, ``an_high``, ``af``, ``af_low``, ``af_high``.
 
+    A day exactly at a percentile cut-off counts in the extreme range only,
+    so the extreme and moderate components partition the days of each side.
+    (Two closed ranges, as in calls of ``attrdl.R`` with ``range=``, count
+    such days twice.)
+
     If ``cen`` lies beyond one of the extreme percentiles the corresponding
     "moderate" range is empty and the "extreme" range is cut at ``cen``,
     so that no component straddles the reference. ``group`` is as in
@@ -396,9 +401,16 @@ def attr_table(x, basis, cases, model=None, coef=None, vcov=None, model_link=Non
         plo, phi = quantile7(x, np.asarray(extreme_percentiles) / 100)
         # keep every component on one side of the reference
         plo, phi = min(float(plo), cen), max(float(phi), cen)
+        # attrdl's ranges are closed at both ends, so a day exactly at a
+        # cut-off would fall in both the extreme and the moderate range (ties
+        # are common in temperatures converted from whole degrees). Keep the
+        # cut-off in the extreme range and open the moderate range there, so
+        # the four components partition the days.
         ranges.update({
-            "extreme cold": (xmin, float(plo)), "moderate cold": (float(plo), cen),
-            "moderate heat": (cen, float(phi)), "extreme heat": (float(phi), xmax),
+            "extreme cold": (xmin, float(plo)),
+            "moderate cold": (float(np.nextafter(plo, np.inf)) if plo < cen else cen, cen),
+            "moderate heat": (cen, float(np.nextafter(phi, -np.inf)) if phi > cen else cen),
+            "extreme heat": (float(phi), xmax),
         })
     # one set of simulated coefficients shared by every component
     if model is not None:

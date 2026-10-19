@@ -63,10 +63,11 @@ Regression test names a test in `tests/` that targets the behaviour. "none found
 | D45 | 0.8.5 (unreleased) | `model.fit_glm` (dispersion) | Rows with zero prior weight counted in the residual df, so the quasi dispersion and SEs were too small (13% with a quarter of rows at weight zero) | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_fit_glm_dispersion_does_not_count_rows_with_zero_prior_weight` | R: `glm.fit`'s `n.ok`. |
 | D46 | 0.8.5 (unreleased) | `model.fit_glm` (aliasing) | Aliasing tested at `lm.fit`'s 1e-7, where `glm.fit` uses 1e-11 on the weighted design, so near-collinear columns R keeps were dropped | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_fit_glm_aliasing_uses_glm_fit_tolerance` | No stored comparison with R reached the affected range. |
 | D47 | 0.8.5 (unreleased) | `model.fit_clogit` (step-halving path) | On separated data returned a non-stationary point with no warning | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_fit_clogit_reports_non_convergence_on_separated_data` | `coxph` warns that a coefficient may be infinite. |
+| D48 | 0.8.5 (unreleased) | `attribution.attr_table`, `DLNM.attributable` (moderate ranges) | Days exactly at the 2.5th/97.5th percentile counted in both the extreme and the moderate component (moderate heat about 60% too high for Chicago) | yes | statistical review for the manuscript | layer | `test_fixes_0_8_5.py::test_attr_table_extreme_and_moderate_ranges_partition_the_days` | The authors' paired `attrdl.R` calls double-count the same way. |
 
 ## Summary
 
-The ledger lists 47 defects: 41 fixed in releases 0.4.1 to 0.8.4, and 6 fixed for the unreleased 0.8.5. The counts after the table are for the 41 released fixes. The six 0.8.5 defects (D42 to D47) were all silent, five in the layers and one in a ported function, were all found by a statistical review of the package for the manuscript, and all have a targeted regression test.
+The ledger lists 48 defects: 41 fixed in releases 0.4.1 to 0.8.4, and 7 fixed for the unreleased 0.8.5. The counts after the table are for the 41 released fixes. The seven 0.8.5 defects (D42 to D48) were all silent, six in the layers and one in a ported function, were all found by a statistical review of the package for the manuscript, and all have a targeted regression test.
 
 Their distribution by release is:
 
@@ -85,7 +86,7 @@ Their distribution by release is:
 | 0.8.2 | 3 |
 | 0.8.3 | 0 |
 | 0.8.4 | 3 |
-| 0.8.5 (unreleased) | 6 |
+| 0.8.5 (unreleased) | 7 |
 
 Of the 41, 28 were silent and 13 were not.
 

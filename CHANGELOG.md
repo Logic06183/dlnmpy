@@ -16,6 +16,7 @@ Found by a statistical review of the package for the manuscript. No number repor
 
 **Changed**
 
+- **Changes results.** `attr_table` (and so `DLNM.attributable`) counted a day whose exposure equals the 2.5th or 97.5th percentile exactly in both the extreme and the moderate component, because both ranges included the cut-off. Ties are common: Chicago temperatures, converted from whole degrees Fahrenheit, put 10 days on the 2.5th and 21 on the 97.5th percentile, and moderate heat was overstated by about 60%. Such days now count in the extreme component only, so the extreme and moderate components partition each side. Extreme components, total, cold and heat are unchanged. The authors' scripts call `attrdl.R` with two closed ranges and double-count in the same way.
 - `model_grid` warns when the candidate models were fitted to different numbers of observations. Models with different maximum lags drop different numbers of initial days, so their information criteria are not comparable without refitting on the common rows, as R's `AIC()` also warns.
 
 **Documentation**

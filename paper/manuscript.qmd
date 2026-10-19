@@ -198,7 +198,7 @@ The model is a quasi-Poisson regression of daily deaths on a cross-basis of temp
 
 ```{python}
 #| label: tbl-chicago-attr
-#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile. The point estimates do not depend on the simulation. The interval limits change with the seed at this number of simulations, so they are rounded to 100 deaths and 0.1 percentage points. As in the authors' published code, each extreme range and the moderate range next to it share their cut-off, and Chicago temperatures, converted from whole degrees Fahrenheit, fall exactly on it on some days, which then count in both."
+#| tbl-cap: "Deaths attributable to temperature in Chicago, 1987 to 2000, relative to the minimum mortality temperature, with empirical 95% intervals from 5,000 simulated coefficient sets (seed 2026). Extreme means beyond the 2.5th or 97.5th percentile. The point estimates do not depend on the simulation. The interval limits change with the seed at this number of simulations, so they are rounded to 100 deaths and 0.1 percentage points. Chicago temperatures, converted from whole degrees Fahrenheit, fall exactly on a cut-off on some days, and those days count in the extreme range only."
 #| echo: false
 t_fit = time.perf_counter() - t_fit0
 t_attr0 = time.perf_counter()
