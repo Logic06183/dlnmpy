@@ -1,0 +1,38 @@
+# dlnmpy submission prep: report
+
+Branch `submission-prep` (pushed). Details in `.handoff/log.md`, `.handoff/number-audit.md` and `.handoff/journal-checklist.md`.
+
+## What changed
+
+- **Manuscript.** The abstract went from 383 to 250 words. Every count, agreement level, runtime and the Lancet stage table are now computed at render time, and a final cell stops the render if the typed abstract disagrees with them. Code availability, computational details (with a version table read from the environment), author contributions, data availability and a function-by-check coverage table were added. The prose was cleaned of AI tells. Corrected errors: "9 cross-bases" (12); "two" reproductions rerun (six); the forward attribution assumption (checked against Gasparrini and Leone 2014); 7 df/year attributed to the Lancet analysis (it used 8); clogit's algorithm; untraceable or wrong runtimes; a "2e-4 SE" magnification claim (1.9e-6); stale "[published code]" intervals printed by `examples/lancet_2015.py`; and the counting rule behind 161,356.
+- **Statistical review.** There were three rounds of independent referees. The final recommendation is **accept**. They found eight silent defects (D42 to D49): prediction lookup on fine grids, the LogC link, `attr_table` with non-log links, zero prior weights in `fit_glm` and `fit_pgam`, `glm.fit`'s aliasing tolerance, silent clogit non-convergence, and `attr_table` double-counting days on the cut-offs. Seven are fixed on `submission-prep`, each with a regression test that fails without it, a CHANGELOG entry and a ledger row. Also added: an offline test tier against the stored R results, a slow tier for the six reproductions, inference caveats, and Monte Carlo error reporting.
+- **Reproducibility.** `REPRODUCE.md`; `paper/requirements.txt` pins all 123 packages; the paper runs dlnmpy from the clone and refuses any other copy; `paper/.python-version` added. Report of private correspondence removed from README and CHANGELOG.
+- **Cold runs (fresh clones, Linux, Python 3.11).** On `v0.8.4`: all six reproductions pass (161,356 comparisons, 0 failures). On `submission-prep`: 161 tests pass, 7 slow ones skip by design, and side-by-side has 0 failures. PDF and DOCX: see "Render" below.
+
+## [CHECK] items in the manuscript
+
+1. Grant number U54TW012083 (Funding).
+2. The Git tag of the submitted manuscript (Code availability).
+3. Release 0.8.5 and its Zenodo version DOI, in two places (Reproducibility, Code availability). Until then the text says 0.8.5.dev0.
+
+## Release decision (pending, yours)
+
+0.8.5 is justified: seven silent defects are fixed. Nothing in the six published analyses, side-by-side or the paper changes. Branch `release-0.8.5` holds the version bumps only (not tagged, not uploaded, no Zenodo version). Fill in the date and conda sha256.
+
+Separate decision: **`fix/attr-table-partition`** (D48). `attr_table` counted days exactly on the 2.5th/97.5th percentile in both extreme and moderate components. Chicago has 10 and 21 such days, so moderate heat is about 60% too high. The authors' own scripts do the same. The fix changes results 0.8.4 reports, so I stopped. To accept it: merge that branch into `submission-prep` (it is up to date with it), then the release commit. The manuscript on `submission-prep` states the current convention honestly.
+
+## Only you can do
+
+- Confirm grant number U54TW012083.
+- Add any co-authors who accept: names, affiliations, ORCIDs, CRediT roles (only yours is in now) and a description of their independent checks.
+- Open the journal's author guidelines (unreachable from my machine) and tick `.handoff/journal-checklist.md`, in particular the abstract limit, required sections, reference style (add a `csl:` if they supply one) and the founding-article fee waiver in writing.
+- Decide on 0.8.5 and the partition fix, then tag, release on GitHub and PyPI, mint the Zenodo version, and replace the three [CHECK]s.
+- Run `python tools/check_dois.py` on a normal connection. The 14 biomedical DOIs were confirmed through PubMed. The rest (JSS, JRSS-B, SciPy proceedings, CiSE, JORS, CRAN, Zenodo, books) I could not resolve. Check the mixmetapy version DOI 10.5281/zenodo.22876733 in particular.
+- GitHub Actions: every run fails in about 2 seconds with no steps executed, which points to a billing or Actions-minutes setting on the account. The manuscript says CI does not currently run.
+- Merge `submission-prep` to main when you are happy.
+- On your Mac: `rm -rf ~/Projects/dlnmpy/.release ~/Projects/dlnmpy/.git/stale-maintenance-lock-claude` and delete any `tmp_pack*` files (none of these are in the clone).
+- Sign in to submit.fairpressjournals.com and upload the PDF with the repository link.
+
+## Not done
+
+Optional task 7 (speeding up `fit_clogit` and the `cr` basis) was not attempted. Every change to the numerical core reopens the full R validation, and the review fixes took priority.
