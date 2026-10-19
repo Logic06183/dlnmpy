@@ -207,7 +207,7 @@ t_fit = time.perf_counter() - t_fit0
 t_attr0 = time.perf_counter()
 tab = fit.attributable(seed=2026)
 t_attr = time.perf_counter() - t_attr0
-# Monte Carlo error of the simulated limits: the same table with four more seeds
+# Monte Carlo error of the simulated limits: the same table with nine more seeds
 reps = [tab] + [fit.attributable(seed=s) for s in range(2027, 2036)]
 lim = np.stack([np.c_[r.an_low, r.an_high, r.af_low, r.af_high] for r in reps])   # seed x component x limit
 mc_sd = lim.std(axis=0, ddof=1)
