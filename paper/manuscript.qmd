@@ -50,6 +50,9 @@ warnings.simplefilter("ignore")
 REPO = Path.cwd().parent            # Quarto executes from paper/
 EXAMPLES = REPO / "examples"
 REFERENCE = REPO / "tests" / "reference"
+# the document describes the code in this repository, so it must run that code
+assert (REPO / "src") in Path(dl.__file__).resolve().parents, \
+    f"dlnmpy is imported from {dl.__file__}; run `pip install --no-deps -e .` from the repository root"
 
 # England and Wales data used by both reproductions, pinned to a commit of the
 # authors' repository and checked against a known SHA-256.
