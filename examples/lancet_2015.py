@@ -21,6 +21,7 @@ code, and the agreement of every intermediate, are in docs/validation.md.
 """
 
 import io
+import json
 import urllib.request
 from pathlib import Path
 
@@ -33,6 +34,8 @@ from mixmetapy import mixmeta  # pip install dlnmpy[twostage]
 DATA_URL = ("https://raw.githubusercontent.com/gasparrini/"
             "2015_gasparrini_Lancet_Rcodedata/master/regEngWales.csv")
 CACHE = Path(__file__).with_name("regEngWales.csv")
+# the authors' code as published, run in R by tools/reproduce_lancet2015.R
+REFERENCE = Path(__file__).resolve().parents[1] / "tests" / "reference" / "lancet2015.json"
 
 # specification of the published analysis
 VARFUN, VARDEGREE, VARPER = "bs", 2, [0.10, 0.75, 0.90]
@@ -122,15 +125,16 @@ def main() -> None:
     aflow = np.quantile(sim_tot, 0.025, axis=1) / tot * 100
     afhigh = np.quantile(sim_tot, 0.975, axis=1) / tot * 100
 
+    r = json.loads(REFERENCE.read_text())["attributable"]["published"]
     print(f"\nEngland & Wales, {d.year.min()}-{d.year.max()}, {int(tot):,} deaths")
     print(f"minimum-mortality percentile (median over regions): {np.median(minperc):.1f}"
-          "     [published code: 89.5]")
+          f"     [published code: {r['minperccountry']:.1f}]")
     print("\nattributable fraction (%)        estimate      95% empirical CI"
           "        [published code]")
     # the point estimates are deterministic and match R exactly; the interval is
-    # simulated, so it differs from R's in the third digit by Monte Carlo error
-    for j, nm, ref in ((0, "total", "8.94 (8.42-9.43)"), (1, "cold", "8.63 (8.13-9.12)"),
-                       (2, "heat", "0.31 (0.27-0.34)")):
+    # simulated, so it differs from R's in the second decimal by Monte Carlo error
+    for j, nm in enumerate(("total", "cold", "heat")):
+        ref = f"{r['aftot'][j]:.2f} ({r['aftotlow'][j]:.2f}-{r['aftothigh'][j]:.2f})"
         print(f"  {nm:6s}                         {af[j]:5.2f}        "
               f"{aflow[j]:5.2f} to {afhigh[j]:5.2f}          [{ref}]")
 

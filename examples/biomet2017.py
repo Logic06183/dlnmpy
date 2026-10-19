@@ -52,8 +52,8 @@ The script exits non-zero if any comparison fails. Its last line is
 
 Deviations from the authors' code: the internal method (``s(Q, L, bs="cb")``),
 the unpenalised GLMs, the Q-AIC knot search, the simulation study and the
-plots are not reproduced; ``int=F`` is written ``intercept=False`` because
-dlnmpy does not partially match that argument name.
+plots are not reproduced. The authors' ``int=F`` is written ``intercept=False``
+(dlnmpy has accepted ``int=`` as R's partial match since 0.8.4).
 """
 
 from __future__ import annotations

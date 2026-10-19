@@ -27,6 +27,7 @@ Reference values from the R code are in docs/validation.md.
 """
 
 import io
+import json
 import urllib.request
 from pathlib import Path
 
@@ -39,6 +40,8 @@ from mixmetapy import mixmeta  # pip install dlnmpy[twostage]
 DATA_URL = ("https://raw.githubusercontent.com/gasparrini/"
             "2013_gasparrini_BMCmrm_Rcodedata/master/regEngWales.csv")
 CACHE = Path(__file__).with_name("regEngWales.csv")
+# the authors' updated script, run in R by tools/reproduce_bmcmrm2013.R
+REFERENCE = Path(__file__).resolve().parents[1] / "tests" / "reference" / "bmcmrm2013.json"
 LAT = [54.84815, 53.58832, 53.72352, 52.85539, 52.53304,
        52.03734, 51.50583, 51.24213, 51.05361, 52.02615]
 
@@ -111,19 +114,23 @@ def main() -> None:
         Q, df = np.atleast_1d(q["Q"])[0], np.atleast_1d(q["df"])[0]
         return float((Q - df) / Q * 100)
 
+    r = json.loads(REFERENCE.read_text())["published"]
+    r2, rq = r["second_stage"], r["first_stage"]["qaic_total"]
     print(f"\nEngland & Wales, {len(regions)} regions, {d.year.min()}-{d.year.max()}")
-    print(f"  minimum-mortality temperature        {mmt:.1f} C            [R script: 17.1]")
-    for t, ref in ((22, "1.101 (1.079-1.124)"), (0, "1.309 (1.245-1.376)")):
+    print(f"  minimum-mortality temperature        {mmt:.1f} C            [R script: {r2['mmt']:.1f}]")
+    for t, key in ((22, "rr22"), (0, "rr0")):
         i = at(t)
+        ref = "{:.3f} ({:.3f}-{:.3f})".format(*r2[key])
         print(f"  pooled RR at {t:2d} C                    "
               f"{cp.allRRfit[i]:.3f} ({cp.allRRlow[i]:.3f}-{cp.allRRhigh[i]:.3f})"
               f"   [R script: {ref}]")
+    ri2 = " / ".join(f"{r2['pooled'][k]['qtest']['I2']:.1f}" for k in ("all", "hot", "cold"))
     print(f"  I2  overall {i2(pooled['all']):.1f}%   at 22 C {i2(pooled['hot']):.1f}%"
-          f"   at 0 C {i2(pooled['cold']):.1f}%      [R script: 63.8 / 16.4 / 63.5]")
+          f"   at 0 C {i2(pooled['cold']):.1f}%      [R script: {ri2}]")
     print("\n  QAIC, summed over regions (lower is better):")
-    for key, label in (("m1", "B-spline of lag 0-21"), ("m2", "constant of lag 0-3"),
-                       ("m3", "constant of lag 0-21")):
-        print(f"    {label:24s} {qaic[key]:12.1f}")
+    for j, (key, label) in enumerate((("m1", "B-spline of lag 0-21"), ("m2", "constant of lag 0-3"),
+                                      ("m3", "constant of lag 0-21"))):
+        print(f"    {label:24s} {qaic[key]:12.1f}   [R script: {rq[j]:.1f}]")
     print(f"    -> the flexible lag model wins by "
           f"{min(qaic['m2'], qaic['m3']) - qaic['m1']:.0f} QAIC units")
 
