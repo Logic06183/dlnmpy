@@ -164,7 +164,7 @@ Attributable numbers and fractions are computed from the fitted exposure-respons
 
 Beyond the port, `dlnm()` fits the usual temperature-mortality model in one call and returns an object bound to its data, whose methods give the MMT, relative risks at chosen percentiles, the attributable table and the standard figure. It is tested to agree with the explicit pipeline to $10^{-12}$.
 
-Three behaviours inherited from R need care in use. Predictions are relative to a centring value, and when none is given dlnmpy chooses one and raises a `CenteringWarning`, as R prints a message. Natural and B-splines extrapolate beyond their boundary knots, as in R, so predictions outside the observed exposure range rest on the basis and not on data. The backward and forward attribution perspectives answer different questions, and the forward perspective assumes the association does not depend on exposure history before day $t$ [@gasparrini2014attr].
+Three behaviours inherited from R need care in use. Predictions are relative to a centring value, and when none is given dlnmpy chooses one and raises a `CenteringWarning`, as R prints a message. Natural and B-splines extrapolate beyond their boundary knots, as in R, so predictions outside the observed exposure range rest on the basis and not on data. The backward and forward attribution perspectives answer different questions. The backward perspective attributes the cases on day $t$ to the exposures over the preceding lags, and the forward perspective attributes to the exposure on day $t$ the cases over the following lags. Both treat the contributions at different lags as independent, and the forward version approximates the lag structure by averaging the future counts, which is expected to underestimate the attributable number slightly relative to the backward version [@gasparrini2014attr].
 
 ## Dependencies and distribution
 
@@ -217,6 +217,13 @@ md(pd.DataFrame({
 #| label: fig-chicago
 #| fig-cap: "Overall cumulative association between daily mean temperature and mortality in Chicago, lags 0 to 21, from `fit.figure()`. The curve is centred on the minimum mortality temperature (vertical line, with its 95% empirical interval shaded). Percentiles of the temperature distribution are marked along the top and the distribution is shown beneath."
 ax = fit.figure(xlab="Temperature (°C)")
+```
+
+```{python}
+#| label: chicago-claims
+#| echo: false
+an = dict(zip(tab.component, tab.an))
+assert an["cold"] > an["total"] / 2 and an["moderate cold"] > an["cold"] / 2, "text below is out of date"
 ```
 
 Cold accounts for most of the temperature-attributable deaths in Chicago, and moderate cold for most of that, the same pattern @gasparrini2015lancet reported for most locations. `fit.predict(percentiles=[1, 99]).to_dataframe()` returns the lag-specific effects as a long table, and `fit.reduce()` returns the reduced coefficients for pooling.
