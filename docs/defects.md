@@ -1,6 +1,6 @@
 # Defect ledger, 0.1.0 to 0.8.4
 
-Built from `CHANGELOG.md` (0.1.0 to 0.8.3) and the unreleased 0.8.4 fixes in the working tree, each checked against `git log -p` (tags v0.7.0 to v0.8.3, and the untagged commits before them) and the `tests/` directory. Ledger as of 13 October 2026.
+Built from `CHANGELOG.md` (0.1.0 to 0.8.4) each checked against `git log -p` (tags v0.7.0 to v0.8.3, and the untagged commits before them) and the `tests/` directory. Ledger as of 13 October 2026, updated 19 October 2026.
 
 ## Counting rule
 
@@ -9,7 +9,7 @@ A defect is a behaviour that gave a wrong number, crashed, hung, or rejected val
 Column key:
 
 - **Silent?** yes = wrong result with no error or warning at the point of the call; no = crash, error, hang or refusal.
-- **Port / layer**: port = a function that exists in R `dlnm` or in the published `attrdl.R`, `findmin.R` or `mixmeta`; layer = fitting wrappers, the `dlnm()` workflow, plotting, uncertainty helpers, I/O and DataFrame interop. Plotting is classed as layer as instructed, even where it mirrors `plot.crosspred`.
+- **Port / layer**: port = a function that exists in R `dlnm` or in the published `attrdl.R`, `findmin.R` or `mixmeta`; layer = fitting wrappers, the `dlnm()` workflow, plotting, uncertainty helpers, I/O and DataFrame interop. Plotting is classed as layer, even where it mirrors `plot.crosspred`.
 - **Regression test**: a test in `tests/` that targets the behaviour. "none found" means no such test exists in this repository.
 
 ## Ledger
@@ -54,9 +54,9 @@ Column key:
 | D36 | 0.8.2 | `penalized.fit_pgam` / `fit_pglm` | Returned all-NaN coefficients, covariance and criterion with `converged=True` after sp ran to ~1e19 | yes | reproduction of Gasparrini et al. 2017 *Biometrics* | layer | `test_penalized.py::test_pgam_never_reports_convergence_on_a_nonfinite_fit` | Weak test: half of it asserts source text via `inspect.getsource`, and the behavioural half passes without checking anything if the fit is finite or raises `LinAlgError`. |
 | D37 | 0.8.2 | `penalized` starting values (`_start_rho`) | Start taken from an unpenalised fit that diverges when only the penalty makes the model estimable; search aborted with a bare `LinAlgError` | no | reproduction of Gasparrini et al. 2017 *Biometrics* | layer | `test_penalized.py::test_pgam_starts_when_the_unpenalised_fit_diverges` | |
 | D38 | 0.8.2 | `penalized` smoothing-parameter search | A trial sp making the penalised information singular aborted the whole search | no | reproduction of Gasparrini et al. 2017 *Biometrics* | layer | none found | Only tolerated, not targeted, by the `except LinAlgError` branch of the D36 test. |
-| D39 | 0.8.4 (unreleased) | `attribution.simulate_coef(normals=)` | Did not reproduce R's draws from R's normals, because eigenvector signs differ between LAPACK routines; `eigvecs=` added and signs now fixed deterministically | yes | reproduction of Gasparrini & Leone 2014 *BMC MRM* | layer | `test_fixes_0_8_4.py::test_simulate_coef_sign_does_not_depend_on_eigensolver`, `::test_simulate_coef_eigvecs_reproduces_mvrnorm_construction` | Classed as uncertainty helper; it is the `mvrnorm` step of `attrdl.R` and also feeds `attrdl`, `findmin`, `attr_table` and `bootstrap`. The tests check sign invariance and the mvrnorm construction, not R's actual draws; the R comparison is in `examples/leone2014.py` (untracked). Both tests fail on HEAD and pass on the working tree. |
-| D40 | 0.8.4 (unreleased) | `model.fit_clogit` (step-halving path) | Lost the parameter names, so `crosspred(name=)` failed | no | reproduction of Gasparrini 2014 *Stat Med* | layer | `test_fixes_0_8_4.py::test_fit_clogit_keeps_names_on_step_halving_path` | Regression introduced by the D33 fix in 0.8.1 (`res.params = b` in 3c6c74f). Fails on HEAD, passes on the working tree. |
-| D41 | 0.8.4 (unreleased) | `core.normalise_args` (basis arguments) | `int=` (R partial match of `intercept`) was rejected | no | reproduction of Gasparrini 2014 *Stat Med* and Gasparrini et al. 2017 *Biometrics* | port | `test_fixes_0_8_4.py::test_int_is_partial_match_for_intercept` | Fails on HEAD, passes on the working tree. |
+| D39 | 0.8.4 | `attribution.simulate_coef(normals=)` | Did not reproduce R's draws from R's normals, because eigenvector signs differ between LAPACK routines; `eigvecs=` added and signs now fixed deterministically | yes | reproduction of Gasparrini & Leone 2014 *BMC MRM* | layer | `test_fixes_0_8_4.py::test_simulate_coef_sign_does_not_depend_on_eigensolver`, `::test_simulate_coef_eigvecs_reproduces_mvrnorm_construction` | Classed as uncertainty helper; it is the `mvrnorm` step of `attrdl.R` and also feeds `attrdl`, `findmin`, `attr_table` and `bootstrap`. The tests check sign invariance and the mvrnorm construction, not R's actual draws; the R comparison is in `examples/leone2014.py`. Both tests fail on 0.8.3 and pass on 0.8.4. |
+| D40 | 0.8.4 | `model.fit_clogit` (step-halving path) | Lost the parameter names, so `crosspred(name=)` failed | no | reproduction of Gasparrini 2014 *Stat Med* | layer | `test_fixes_0_8_4.py::test_fit_clogit_keeps_names_on_step_halving_path` | Regression introduced by the D33 fix in 0.8.1 (`res.params = b` in 3c6c74f). Fails on 0.8.3, passes on 0.8.4. |
+| D41 | 0.8.4 | `core.normalise_args` (basis arguments) | `int=` (R partial match of `intercept`) was rejected | no | reproduction of Gasparrini 2014 *Stat Med* and Gasparrini et al. 2017 *Biometrics* | port | `test_fixes_0_8_4.py::test_int_is_partial_match_for_intercept` | Fails on 0.8.3, passes on 0.8.4. |
 
 ## Summary
 
@@ -78,7 +78,7 @@ By release:
 | 0.8.1 | 3 |
 | 0.8.2 | 3 |
 | 0.8.3 | 0 |
-| 0.8.4 (unreleased) | 3 |
+| 0.8.4 | 3 |
 
 Silent vs not: 28 silent, 13 not silent.
 

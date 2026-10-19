@@ -40,7 +40,7 @@ Time-series studies of temperature, air pollution or any lagged exposure against
 
 ## Scope
 
-dlnmpy follows the R package boundaries, so that anyone coming from R finds things where they expect them. `dlnm` (bases, prediction, reduction, penalised fitting) is here, together with Gasparrini's `attrdl` and `findmin` scripts that travel with it. `mixmeta`, which is a separate package in R with its own methods paper, is the separate Python package [mixmetapy](https://github.com/Logic06183/mixmetapy); `pip install "dlnmpy[twostage]"` installs both. Until 0.7 they were one package; Antonio Gasparrini suggested the split in September 2026.
+dlnmpy follows the R package boundaries, so that anyone coming from R finds things where they expect them. `dlnm` (bases, prediction, reduction, penalised fitting) is here, together with Gasparrini's `attrdl` and `findmin` scripts that travel with it. `mixmeta`, which is a separate package in R with its own methods paper, is the separate Python package [mixmetapy](https://github.com/Logic06183/mixmetapy); `pip install "dlnmpy[twostage]"` installs both. Until 0.7 they were one package.
 
 ## Why
 

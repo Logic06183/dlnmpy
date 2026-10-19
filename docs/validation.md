@@ -83,7 +83,7 @@ The methodological paper behind the two-stage design, with code and data at
 `examples/bmcmrm_2013.py` translates it. Same 10 regions as the Lancet example
 but a different question, so it covers what that one does not: `crossreduce`
 in its overall *and* predictor-specific (`type="var"`) forms, three competing
-lag specifications compared by QAIC, random- and fixed-effects pooling,
+lag specifications (compared by QAIC in the script), random- and fixed-effects pooling,
 Cochran's Q and I², meta-regression on latitude, and prediction from pooled
 coefficients through a `onebasis`.
 
@@ -113,20 +113,22 @@ reduce to the single one above.
 
 ### Why the QAIC fix mattered
 
-This paper selects its lag specification by QAIC, so it is a direct test of
+The authors' script compares its three lag specifications by QAIC, so it is a direct test of
 `uncertainty.qaic`, which before 0.4.1 read the log-likelihood from
 statsmodels' `results.llf` — divided by the dispersion for a quasi family.
 Rerunning this comparison with the old implementation:
 
 | model | QAIC (0.4.1+) | QAIC (before) |
 |---|---|---|
-| B-spline of lag 0-21 (the paper's choice) | **402827.3** | 368280.5 |
+| B-spline of lag 0-21 (the paper's model) | **402827.3** | 368280.5 |
 | constant of lag 0-3 | 406212.0 | **350059.0** |
 | constant of lag 0-21 | 405966.3 | 351008.5 |
 
-The old criterion selected the constant lag 0-3 model, reversing the paper's
-conclusion. Dividing the fit term by phi rewards the more over-dispersed, and
-so the more under-fitted, specification.
+The old criterion ranked the constant lag 0-3 model first, where the
+authors' script, run in R, ranks the B-spline model first. The paper itself
+compares the three models graphically and does not report QAIC. Dividing the
+fit term by phi rewards the more over-dispersed, and so the more under-fitted,
+specification.
 
 ## Missing data
 
