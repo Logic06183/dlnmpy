@@ -11,7 +11,7 @@ author:
         country: South Africa
 article-type: software
 abstract: |
-  Distributed lag non-linear models (DLNMs) are the standard framework for exposure-lag-response associations in environmental epidemiology, especially temperature and mortality. The reference implementation is the R package dlnm, and the minimum mortality temperature, attributable fractions and pooled multi-location estimates that applied papers report come from further R packages and published R scripts. This paper presents dlnmpy, a Python implementation of the DLNM framework and its workflow that needs no R at run time. It ports dlnm, including R's spline, pretty() and quantile() routines so that default knots and prediction grids match, and adds attributable risk, the minimum mortality temperature, penalised DLNMs and a one-call workflow. Multivariate meta-analysis is in the companion package mixmetapy. Agreement with R is checked in three layers: fixtures generated in R, five analyses run in both languages (98 comparisons within a relative tolerance of 1e-8), and six published analyses whose authors' R code was translated into Python and rerun. For England and Wales, the code of Gasparrini et al. (2015) gives a median minimum mortality percentile of 89.5 and an attributable fraction of 8.94%, and that of Gasparrini and Armstrong (2013) gives pooled relative risks of 1.101 at 22 °C and 1.309 at 0 °C. dlnmpy gives the same values, and the six translations agree with the authors' code in all 161,356 comparisons at stated tolerances. The comparisons found 41 defects between releases 0.4.1 and 0.8.4, 28 of them silent, each listed with the test that guards it. The manuscript is executable and reruns every comparison.
+  Distributed lag non-linear models (DLNMs) are the standard framework for exposure-lag-response associations in environmental epidemiology, especially temperature and mortality. The reference implementation is the R package dlnm, and the quantities applied papers report around it come from further R packages and published scripts. This paper presents dlnmpy, a Python implementation of the DLNM framework and its workflow with no R dependency. It ports dlnm, including R's spline, pretty() and quantile() routines so that default knots and prediction grids match, and adds attributable risk, the minimum mortality temperature, penalised DLNMs and a one-call workflow. Meta-analysis is in the companion package mixmetapy. Agreement with R is checked in three layers: fixtures generated in R, five analyses run in both languages (98 comparisons within a relative tolerance of 1e-8), and six published analyses whose authors' R code was translated into Python and rerun. For England and Wales, the code of Gasparrini et al. (2015) gives a median minimum mortality percentile of 89.5 and an attributable fraction of 8.94%, and that of Gasparrini and Armstrong (2013) gives pooled relative risks of 1.101 at 22 °C and 1.309 at 0 °C. dlnmpy gives the same values, and the six translations agree with the authors' code in all 161,356 element-wise comparisons at stated tolerances. These analyses cover daily time series and one cohort, with log links and unit weights. The comparisons found 41 defects between releases 0.4.1 and 0.8.4, 28 of them silent, each with the test that guards it. The executable manuscript reruns every comparison.
 keywords: [distributed lag non-linear models, Python, reproducibility, temperature and mortality, software validation, environmental epidemiology]
 bibliography: references.bib
 quarto-required: ">=1.6.0"
@@ -204,6 +204,11 @@ t_fit = time.perf_counter() - t_fit0
 t_attr0 = time.perf_counter()
 tab = fit.attributable(seed=2026)
 t_attr = time.perf_counter() - t_attr0
+# Monte Carlo error of the simulated limits: the same table with four more seeds
+reps = [tab] + [fit.attributable(seed=s) for s in (2027, 2028, 2029, 2030)]
+lim = np.stack([np.c_[r.an_low, r.an_high, r.af_low, r.af_high] for r in reps])   # seed x component x limit
+mc_sd = lim.std(axis=0, ddof=1)
+mc = {"total_an": mc_sd[0, :2].max(), "total_af": 100 * mc_sd[0, 2:].max(), "max_an": mc_sd[:, :2].max()}
 md(pd.DataFrame({
     "Component": tab.component,
     "AN": [f"{a:,.0f}" for a in tab.an],
@@ -218,6 +223,8 @@ md(pd.DataFrame({
 #| fig-cap: "Overall cumulative association between daily mean temperature and mortality in Chicago, lags 0 to 21, from `fit.figure()`. The curve is centred on the minimum mortality temperature (vertical line, with its 95% empirical interval shaded). Percentiles of the temperature distribution are marked along the top and the distribution is shown beneath."
 ax = fit.figure(xlab="Temperature (°C)")
 ```
+
+Over five seeds (2026 to 2030) the standard deviation of the limits of the total attributable number was `{python} f"{mc['total_an']:,.0f}"` deaths, and of the limits of the total fraction `{python} f"{mc['total_af']:.2f}"` percentage points. For any component it was at most `{python} f"{mc['max_an']:,.0f}"` deaths. The point estimates do not depend on the simulation, but the limits cannot be read more finely than this.
 
 ```{python}
 #| label: chicago-claims
@@ -302,7 +309,7 @@ print(f"I2 {q0['I2'][0]:.1f}% without and {q1['I2'][0]:.1f}% with the meta-predi
 
 # Checks against R
 
-The central claim of the package is numerical equivalence with R. It rests on three layers, each catching a class of error the previous one does not. One limit on their independence applies throughout. Apart from the calls into R packages and the authors' own published scripts, the R code used for comparison (the fixture generators and the side-by-side analyses) was written in the same development process as the port, so a shared misreading of an R argument would pass the first two layers. The third layer uses code written independently of this project.
+The central claim of the package is numerical equivalence with R. It rests on three layers, each catching a class of error the previous one does not. One limit on their independence applies throughout. Apart from the calls into R packages and the authors' own published scripts, the R code used for comparison (the fixture generators and the side-by-side analyses) was written in the same development process as the port, so a shared misreading of an R argument would pass the first two layers. The third layer runs analysis code written independently of this project, but the R scripts that drive it and store its results, the translations, and the tolerances they apply came from the same process as the port. What is independent is the authors' analysis code and the numbers it produces.
 
 ## Unit fixtures
 
@@ -325,7 +332,7 @@ n_tests = int(re.search(r"(\d+) tests? collected", collected)[1])
 
 ## Side-by-side analyses
 
-`tools/side_by_side.R` and `tools/side_by_side.py` run five complete analyses in both languages, including the model fit, on data and specifications not used for the fixtures. They cover ordinary least squares on exposure histories in the `drug` trial, conditional logistic regression in the `nested` case-control study, logistic and quasi-Poisson Chicago models with threshold, polynomial, strata and integer bases, and a four-city simulation with known truth. The R results are stored in the repository, so the Python half reruns without R. Each row compares a vector or matrix (coefficients, covariance, a prediction) and passes if every element is within $10^{-10} + 10^{-8}|r|$ of the R value $r$, or a tighter bound for the bases. A few rows check coverage of the simulated truth and do not involve R.
+`tools/side_by_side.R` and `tools/side_by_side.py` run five complete analyses in both languages, including the model fit, on data and specifications not used for the fixtures. They cover ordinary least squares on exposure histories in the `drug` trial, conditional logistic regression in the `nested` case-control study, logistic and quasi-Poisson Chicago models with threshold, polynomial, strata and integer bases, and a four-city simulation with known truth. The R results are stored in the repository, so the Python half reruns without R. Each row compares a vector or matrix (coefficients, covariance, a prediction) and passes if every element is within $10^{-10} + 10^{-8}|r|$ of the R value $r$, or a tighter bound for the bases. For the four simulated cities a further row reports the share of the prediction grid at which the 95% band of that one fit contains the true curve. It is a sanity check, not an estimate of coverage, and does not involve R.
 
 ```{python}
 #| label: side-by-side
@@ -334,14 +341,14 @@ t0 = time.perf_counter()
 sbs = subprocess.run([sys.executable, "tools/side_by_side.py"], cwd=REPO,
                      capture_output=True, text=True, check=True).stdout.strip().splitlines()
 n_sbs, f_sbs = map(int, re.match(r"(\d+) comparisons, (\d+) failures", sbs[-1]).groups())
-n_cover = sum("truth inside" in line for line in sbs)
+n_cover = sum("true curve inside band" in line for line in sbs)
 RUNS["side_by_side.py"] = {"seconds": time.perf_counter() - t0, "n": n_sbs - n_cover, "fail": f_sbs}
 print(sbs[-1])
 ```
 
-Of these `{python} n_sbs` rows, `{python} n_cover` are the coverage checks, so `{python} n_sbs - n_cover` are comparisons with R, with `{python} f_sbs` failures.
+Of these `{python} n_sbs` rows, `{python} n_cover` are sanity checks against the simulated truth, so `{python} n_sbs - n_cover` are comparisons with R, with `{python} f_sbs` failures.
 
-Audits at releases 0.5.0, 0.6.0 and 0.7.0 compared further edge cases and the workflow layer against R, with every quantity agreeing to $10^{-6}$ or better and most to $10^{-12}$. The results are recorded in `CHANGELOG.md`. The scripts for the 0.6.0 and 0.7.0 comparisons are not in the repository.
+Audits at releases 0.5.0, 0.6.0 and 0.7.0 compared further edge cases and the workflow layer against R, with every quantity agreeing to $10^{-6}$ or better and most to $10^{-12}$. The results are recorded in `CHANGELOG.md` and `docs/validation.md`. The scripts for the 0.6.0 and 0.7.0 comparisons are not in the repository, so those results cannot be rerun, and none of the evidence in the rest of this section depends on them.
 
 ## Published analyses rerun from the authors' code
 
@@ -401,7 +408,7 @@ md(pd.DataFrame([
 ], columns=["Stage", "Quantity", "Maximum absolute difference from R"]))
 ```
 
-The R script stores three versions of the R side: the authors' code as published, the same code with `glm.control(epsilon = 1e-14)`, and the second stage refitted with mixmeta's optimiser tolerance at $10^{-14}$. Against the published code, the first-stage coefficients differ by `{python} msci(L["red_a"])` and their covariance by `{python} msci(L["redv_a_rel"])` relative, which is R's default convergence tolerance acting mainly through the dispersion. The meta-regression estimates 30 parameters from 10 regions and its likelihood is flat, so R's default stopping rule leaves its coefficients about $10^{-5}$ from the optimum, and the last digits of any optimiser's answer depend on the platform. mvmeta, used in the published script, and mixmeta differ from each other by `{python} msci(mv_mx)` at their defaults, and agree to $6 \times 10^{-8}$ when both are run to the optimum [CHECK: not in the stored R results]. dlnmpy's log-likelihood is `{python} msci(abs(ll_py - ll_r))` `{python} "higher" if ll_py > ll_r else "lower"` than R's at its default, and its coefficients are `{python} msci(L["coef_c"])` from R's at the optimum.
+The R script stores three versions of the R side: the authors' code as published, the same code with `glm.control(epsilon = 1e-14)`, and the second stage refitted with mixmeta's optimiser tolerance at $10^{-14}$. Against the published code, the first-stage coefficients differ by `{python} msci(L["red_a"])` and their covariance by `{python} msci(L["redv_a_rel"])` relative, which is R's default convergence tolerance acting mainly through the dispersion. The meta-regression estimates 30 parameters from 10 regions and its likelihood is flat, so R's default stopping rule leaves its coefficients about $10^{-5}$ from the optimum, and the last digits of any optimiser's answer depend on the platform. mvmeta, used in the published script, and mixmeta differ from each other by `{python} msci(mv_mx)` at their defaults. dlnmpy's log-likelihood is `{python} msci(abs(ll_py - ll_r))` `{python} "higher" if ll_py > ll_r else "lower"` than R's at its default, and its coefficients are `{python} msci(L["coef_c"])` from R's at the optimum.
 
 ### Gasparrini and Armstrong (2013), *BMC Medical Research Methodology*
 
@@ -462,6 +469,25 @@ m8_short = float(np.max(np.abs(np.subtract(m8["published"]["coef"], m8["converge
 Three of these comparisons depend on how R's own fits stop. R's `glm` stops at a relative change of $10^{-8}$ in the deviance and `coxph` at $10^{-9}$ in the log-likelihood, a few iterations before the maximum. For the London model of @gasparrini2014attr this leaves the authors' coefficients `{python} msci(leone_coef_rel)` short in relative terms, and for model 8 of @gasparrini2014elr `{python} msci(m8_short)` standard errors short. The R scripts therefore store each fit twice, as the authors' code leaves it and refitted to convergence. The tightest comparisons are against the converged fits, and the distance to the authors' fits is printed alongside. For @gasparrini2017pen the comparison is made at mgcv's smoothing parameters. When dlnmpy selects its own, its REML score was never worse than mgcv's: on one London model the first smoothing parameter went to a value near zero against mgcv's 1.15 with a slightly better score, because the score is almost flat in that direction once the other two lag penalties are present, and the other models agreed to within 1.4%. The published values also hold where the paper reports them. The projected change in the heat-attributable fraction from 2010 to 2019 to 2090 to 2099 under RCP8.5 in @vicedo2019tutorial is `{python} heat85[0]` percentage points (`{python} heat85[1]` to `{python} heat85[2]`), which the paper prints as 4.0 (0.7 to 6.8).
 
 The translations depart from the authors' code in a few documented places, all listed at the top of each script. The internal `s(x, lag, bs = "cb")` smooths of @gasparrini2017pen and the simulation studies of @gasparrini2014elr and @gasparrini2017pen are not reproduced. The miners model of @gasparrini2017pen uses mgcv's default UBRE criterion, which dlnmpy does not implement, so a REML fit of the same model was added for the comparison of smoothing-parameter selection.
+
+## What the checks cover
+
+```{python}
+#| label: tbl-coverage
+#| tbl-cap: "Which layer of the checks against R calls each function: the unit tests (which compare with R fixtures, or with the stored results of the published analyses), the side-by-side analyses, and the six translated published analyses. Read from the source of the tests and scripts when this copy was rendered."
+#| echo: false
+layers = {"Unit tests": sorted((REPO / "tests").glob("test_*.py")),
+          "Side by side": [REPO / "tools" / "side_by_side.py"],
+          "Published analyses": [EXAMPLES / f for f in ("lancet2015_vs_r.py", "bmcmrm2013_vs_r.py",
+                                 "statmed2014.py", "leone2014.py", "vicedo2019.py", "biomet2017.py")]}
+src = {k: " ".join(f.read_text() for f in v) for k, v in layers.items()}
+funcs = ["onebasis", "crossbasis", "crosspred", "crossreduce", "fit_glm", "fit_clogit", "fit_pgam",
+         "cbpen", "attrdl", "attr_table", "findmin", "mmt", "simulate_coef", "qaic", "mixmeta", "dlnm"]
+md(pd.DataFrame([[f"`{f}`"] + ["yes" if re.search(rf"\b{f}\(", src[k]) else "" for k in layers]
+                 for f in funcs], columns=["Function"] + list(layers)))
+```
+
+The comparison counts are element-wise: a covariance matrix of 20 coefficients contributes 400 comparisons and a prediction grid one per point. They show the size of each check. Its breadth is in @tbl-coverage and in the list of quantities at the top of each script. Equivalence is shown for the configurations the published analyses use, which are daily time series and one cohort with sampled risk sets, log links, unit prior weights, and penalised fits at mgcv's smoothing parameters. Prior weights, attribution with a logit link, `group=` with forward attribution, and smoothing parameters selected by dlnmpy are checked against R only through the unit tests of their parts, or not at all.
 
 ## What the comparisons found
 
@@ -581,6 +607,8 @@ r_statmed = json.loads((REFERENCE / "statmed2014.json").read_text())["versions"]
 
 dlnmpy is slower than R in places. In the render of this copy, on the machine described in @sec-computational, the one-call Chicago fit with its summary took `{python} f"{t_fit:.0f}"` seconds and the attributable-risk table with 5,000 simulations `{python} f"{t_attr:.0f}"` seconds. The translation of @gasparrini2014elr took `{python} f"{RUNS['statmed2014.py']['seconds'] / 60:.0f}"` minutes, against `{python} f"{r_statmed:.0f}"` seconds for the R script that produced its reference results, which also refits each model to convergence. Most of the difference lies in `fit_clogit`, which evaluates the conditional likelihood one risk set at a time in Python through statsmodels, where `survival::coxph` uses compiled code, and in the `cr` basis, which evaluates its spline one value at a time in Python. Neither bottleneck changes a result.
 
+The intervals the package reports are conditional, as are those of the R functions it ports. The empirical intervals for attributable numbers and for the MMT simulate the cross-basis coefficients from their estimated sampling distribution, so they carry coefficient uncertainty only. The dispersion, the confounder terms and the model specification are held fixed, and attributable numbers are computed relative to the point estimate of the MMT, as in the authors' code [@gasparrini2015lancet]. BLUP-based location estimates treat the between-location covariance as known. Penalised fits report the Bayesian covariance conditional on the smoothing parameters, without mgcv's correction for their uncertainty [@wood2017gam], and attribution from a penalised fit inherits this. The MMT and its interval are searched on a grid, of step 0.1 by default, within the search range, so an interval that reaches the edge of the range is cut there. The simulated interval limits also carry Monte Carlo error, which is reported with the Chicago example in Section 4.
+
 The checks are only as broad as the analyses compared. A combination of arguments that no fixture, side-by-side analysis or translation exercises has been checked only through the tests of its parts. As Section 5 sets out, most of the R code used for comparison came from the same development process as the port, and the translated published scripts are the only fully independent reference.
 
 The package has one maintainer, and its continuous integration does not currently run. The port follows dlnm 2.4.10, the porting guide documents the mapping function by function, and the fixtures make divergence from R visible, but none of this replaces a second maintainer.
@@ -676,7 +704,7 @@ expected = [f"({n_sbs - n_cover} comparisons within a relative tolerance of 1e-8
             f"median minimum mortality percentile of {mmp:.1f}",
             f"attributable fraction of {af_total:.2f}%",
             f"relative risks of {rr22} at 22 °C and {rr0} at 0 °C",
-            f"in all {n_six:,} comparisons",
+            f"in all {n_six:,} element-wise comparisons",
             f"found {D['n']} defects", f"{D['silent']} of them silent"]
 missing = [e for e in expected if e not in " ".join(abstract.split())]
 assert not missing, f"abstract out of date: {missing}"

@@ -20,10 +20,14 @@ Found by a statistical review of the package for the manuscript. No number in th
 - `model_grid` warns when the candidate models were fitted to different numbers of observations. Models with different maximum lags drop different numbers of initial days, so their information criteria are not comparable without refitting on the common rows, as R's `AIC()` also warns.
 
 - `fit_pgam`/`fit_pglm` raise a `ConvergenceWarning` when the smoothing-parameter search does not converge, as mgcv warns when its outer iteration fails. Previously only `converged=False` said so.
+- An offline test tier, `tests/test_reference_offline.py`, runs with the ordinary suite. It reruns the second stage of Gasparrini et al. (2015) and of Gasparrini and Armstrong (2013) from R's own first-stage reductions, replays R's simulated coefficients of Vicedo-Cabrera et al. (2019), and checks every `attr_table` component and its intervals. Until now the stored R results of the published analyses were read only by the example scripts.
+- `tests/test_reproductions_slow.py` runs the six published reproductions and the side-by-side analyses under pytest (`DLNMPY_SLOW=1 pytest -m slow`, about an hour, needs network once).
+- `tools/side_by_side.py` no longer calls its check against the simulated truth "coverage": it reports the share of one replicate's prediction grid at which the band contains the true curve.
 - Targeted tests for three earlier defects that had none (D16, D32 and D38 in `docs/defects.md`), in `tests/test_penalized_guards.py`.
 
 **Documentation**
 
+- `docs/theory.md` states what the simulated intervals condition on (coefficient uncertainty only, the MMT as reference, Psi known for BLUPs, Vp for penalised fits, the MMT grid) and how to report their Monte Carlo error. `qaic` documents that it ignores prior weights, as `fqaic` does.
 - The REML criterion of `fit_pgam` takes the log pseudo-determinant of the penalty directly from its eigenvalues, where mgcv uses Wood's (2011) stable transform. The docstring and `docs/penalized.md` no longer say the criterion is computed "exactly as" in mgcv, and state that this loses accuracy when smoothing parameters differ by a factor of about e^20 or more.
 
 ## 0.8.4 (2026-10-13)

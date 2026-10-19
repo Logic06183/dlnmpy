@@ -43,6 +43,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: the full published reproductions (set DLNMPY_SLOW=1; about an hour, needs network once)"]
 
 [tool.ruff]
 line-length = 110
