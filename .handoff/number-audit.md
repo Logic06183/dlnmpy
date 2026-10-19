@@ -32,3 +32,7 @@ Each number the manuscript states, where it comes from, and whether it matched. 
 | 5.3 | model 8 of Stat Med 1.6e-6 SE short | `statmed2014.json`, published vs converged / SE | 1.64e-6 | matched; now inline |
 | 5.3 | "a reduction summed over 39 lags magnifies [this] to 2e-4 standard errors" | recomputed: `crossreduce` of the stored published and converged model-8 fits | 1.9e-6 SE (reduced coefficients and overall curve) | **wrong; removed** |
 | 5.3 | `glm` and `coxph` stop at "about 1e-8 in the deviance" | R defaults (`glm.control` epsilon 1e-8; `coxph.control` eps 1e-9, as the script prints) | 1e-8 and 1e-9 | **imprecise; fixed** |
+| 5.3 / 5.4 | 161,356 "element-wise" comparisons (my own wording, introduced and then corrected) | script outputs | five scripts count elements; `biomet2017.py` counts 66 quantities (63 table rows covering 142,275 elements, plus 3 selection checks) | **corrected**: the text now states the counting rule, and the element total is computed |
+| 5.3, Biometrics row | coefficients to 3e-10 for London | `biomet2017.py` output | 3.37e-10 SE | **slightly understated; now "4e-10 standard errors"** |
+| 5.3 | other smoothing parameters within 1.4% of mgcv | `biomet2017.py` output, this machine | 0.2% | **not reproduced here; now computed from the run** |
+| 5.3 | dlnmpy REML score never worse than mgcv; London first sp near zero vs mgcv's 1.15 | `biomet2017.py` output | score differences -3.4e-11, -2.9e-6, -1.0e-3; mgcv sp 1.146 | matched; now computed |

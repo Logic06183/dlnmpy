@@ -11,7 +11,7 @@ author:
         country: South Africa
 article-type: software
 abstract: |
-  Distributed lag non-linear models (DLNMs) are the standard framework for exposure-lag-response associations in environmental epidemiology, especially temperature and mortality. The reference implementation is the R package dlnm, and the quantities applied papers report around it come from further R packages and published scripts. This paper presents dlnmpy, a Python implementation of the DLNM framework and its workflow with no R dependency. It ports dlnm, including R's spline, pretty() and quantile() routines so that default knots and prediction grids match, and adds attributable risk, the minimum mortality temperature, penalised DLNMs and a one-call workflow. Meta-analysis is in the companion package mixmetapy. Agreement with R is checked in three layers: fixtures generated in R, five analyses run in both languages (98 comparisons within a relative tolerance of 1e-8), and six published analyses whose authors' R code was translated into Python and rerun. For England and Wales, the code of Gasparrini et al. (2015) gives a median minimum mortality percentile of 89.5 and an attributable fraction of 8.94%, and that of Gasparrini and Armstrong (2013) gives pooled relative risks of 1.101 at 22 °C and 1.309 at 0 °C. dlnmpy gives the same values, and the six translations agree with the authors' code in all 161,356 element-wise comparisons at stated tolerances. These analyses cover daily time series and one cohort, with log links and unit weights. The comparisons found 41 defects between releases 0.4.1 and 0.8.4, 28 of them silent, each with the test that guards it. The executable manuscript reruns every comparison.
+  Distributed lag non-linear models (DLNMs) are the standard framework for exposure-lag-response associations in environmental epidemiology, especially temperature and mortality. The reference implementation is the R package dlnm, and the quantities applied papers report around it come from further R packages and published scripts. This paper presents dlnmpy, a Python implementation of the DLNM framework and its workflow with no R dependency. It ports dlnm, including R's spline, pretty() and quantile() routines so that default knots and prediction grids match, and adds attributable risk, the minimum mortality temperature, penalised DLNMs and a one-call workflow. Meta-analysis is in the companion package mixmetapy. Agreement with R is checked in three layers: fixtures generated in R, five analyses run in both languages (98 comparisons within a relative tolerance of 1e-8), and six published analyses whose authors' R code was translated into Python and rerun. For England and Wales, the code of Gasparrini et al. (2015) gives a median minimum mortality percentile of 89.5 and an attributable fraction of 8.94%, and that of Gasparrini and Armstrong (2013) gives pooled relative risks of 1.101 at 22 °C and 1.309 at 0 °C. dlnmpy gives the same values, and the six translations agree with the authors' code in all 161,356 comparisons at stated tolerances. These analyses cover daily time series and one cohort, with log links and unit weights. The comparisons found 41 defects between releases 0.4.1 and 0.8.4, 28 of them silent, each with the test that guards it. The executable manuscript reruns every comparison.
 keywords: [distributed lag non-linear models, Python, reproducibility, temperature and mortality, software validation, environmental epidemiology]
 bibliography: references.bib
 quarto-required: ">=1.6.0"
@@ -455,7 +455,7 @@ heat85 = re.search(r"RCP8\.5 heat\s+([-\d.]+)\s+\(([-\d.]+) to ([-\d.]+)\)", RUN
 | @gasparrini2014elr | risk sets and exposure histories, cross-bases, the eight models of Table II (coefficients, covariance, log-likelihood, AIC, BIC, likelihood-ratio tests), Figures 1 to 3, Table III, the peak lag, the additional analyses and a reduction | coefficients and covariance to $10^{-9}$, predictions within $10^{-6}$ of R's standard error, peak lags identical |
 | @gasparrini2014attr | model, Tables 1 and 2 (attributable numbers and fractions, both perspectives, with intervals from 5,000 draws), daily attributable deaths, predictions | fractions to $10^{-13}$, intervals from R's own draws to $4 \times 10^{-6}$ relative |
 | @vicedo2019tutorial | first-stage fits, MMT, bias-corrected series, simulated coefficients, projected attributable numbers and fractions by decade, model and scenario, with intervals | fractions to $10^{-12}$, intervals to $10^{-10}$ |
-| @gasparrini2017pen | penalty matrices and ranks, REML score, coefficients, covariance, effective degrees of freedom and the overall curve, at mgcv's smoothing parameters | penalties to $10^{-15}$, scores to $10^{-8}$, coefficients to $3 \times 10^{-10}$ for London and $10^{-7}$ for the miners |
+| @gasparrini2017pen | penalty matrices and ranks, REML score, coefficients, covariance, effective degrees of freedom and the overall curve, at mgcv's smoothing parameters | penalties to $10^{-15}$, scores to $10^{-8}$, coefficients to $4 \times 10^{-10}$ standard errors for London and $10^{-7}$ for the miners |
 
 : The four further reproductions. Tolerances are stated in each script, and differences are absolute unless marked relative. {#tbl-four}
 
@@ -465,11 +465,18 @@ heat85 = re.search(r"RCP8\.5 heat\s+([-\d.]+)\s+\(([-\d.]+) to ([-\d.]+)\)", RUN
 leone_coef_rel = float(re.search(r"cb coefficients\s+\d+\s+[\d.e+-]+\s+([\d.e+-]+)",
                                  RUNS["leone2014.py"]["out"])[1])
 m8 = json.loads((REFERENCE / "statmed2014.json").read_text())["models"]["model8"]
+bio = RUNS["biomet2017.py"]["out"]
+sel_diff = [float(v) for v in re.findall(r"score dlnmpy - mgcv: ([-\d.e+]+)", bio)]
+sp_blocks = re.findall(r"sp dlnmpy/mgcv: (.*?)\s+\(ratio ([^)]*)\)", bio)
+ratios = [float(v) for _, r in sp_blocks for v in r.split(",")]
+gam3_mgcv = float(sp_blocks[2][0].split(",")[0].split("/")[1])
+gam3_diff = sel_diff[2]
+sp_dev = max(abs(1 - v) for v in ratios if v > 1e-3)   # all but the one that went to zero
 m8_short = float(np.max(np.abs(np.subtract(m8["published"]["coef"], m8["converged"]["coef"]))
                         / np.asarray(m8["converged"]["se"])))
 ```
 
-Three of these comparisons depend on how R's own fits stop. R's `glm` stops at a relative change of $10^{-8}$ in the deviance and `coxph` at $10^{-9}$ in the log-likelihood, a few iterations before the maximum. For the London model of @gasparrini2014attr this leaves the authors' coefficients `{python} msci(leone_coef_rel)` short in relative terms, and for model 8 of @gasparrini2014elr `{python} msci(m8_short)` standard errors short. The R scripts therefore store each fit twice, as the authors' code leaves it and refitted to convergence. The tightest comparisons are against the converged fits, and the distance to the authors' fits is printed alongside. For @gasparrini2017pen the comparison is made at mgcv's smoothing parameters. When dlnmpy selects its own, its REML score was never worse than mgcv's: on one London model the first smoothing parameter went to a value near zero against mgcv's 1.15 with a slightly better score, because the score is almost flat in that direction once the other two lag penalties are present, and the other models agreed to within 1.4%. The published values also hold where the paper reports them. The projected change in the heat-attributable fraction from 2010 to 2019 to 2090 to 2099 under RCP8.5 in @vicedo2019tutorial is `{python} heat85[0]` percentage points (`{python} heat85[1]` to `{python} heat85[2]`), which the paper prints as 4.0 (0.7 to 6.8).
+Three of these comparisons depend on how R's own fits stop. R's `glm` stops at a relative change of $10^{-8}$ in the deviance and `coxph` at $10^{-9}$ in the log-likelihood, a few iterations before the maximum. For the London model of @gasparrini2014attr this leaves the authors' coefficients `{python} msci(leone_coef_rel)` short in relative terms, and for model 8 of @gasparrini2014elr `{python} msci(m8_short)` standard errors short. The R scripts therefore store each fit twice, as the authors' code leaves it and refitted to convergence. The tightest comparisons are against the converged fits, and the distance to the authors' fits is printed alongside. For @gasparrini2017pen the comparison is made at mgcv's smoothing parameters. When dlnmpy selects its own, its REML score was `{python} 'never worse than' if max(sel_diff) <= 0 else 'at most ' + f'{max(sel_diff):.1e} worse than'` mgcv's. On one London model the first smoothing parameter went to a value near zero against mgcv's `{python} f'{gam3_mgcv:.2f}'` with a score `{python} f'{-gam3_diff:.1e}'` better, because the score is almost flat in that direction once the other two lag penalties are present. The other smoothing parameters agreed with mgcv's to within `{python} f'{100 * sp_dev:.1f}'`%. The published values also hold where the paper reports them. The projected change in the heat-attributable fraction from 2010 to 2019 to 2090 to 2099 under RCP8.5 in @vicedo2019tutorial is `{python} heat85[0]` percentage points (`{python} heat85[1]` to `{python} heat85[2]`), which the paper prints as 4.0 (0.7 to 6.8).
 
 The translations depart from the authors' code in a few documented places, all listed at the top of each script. The internal `s(x, lag, bs = "cb")` smooths of @gasparrini2017pen and the simulation studies of @gasparrini2014elr and @gasparrini2017pen are not reproduced. The miners model of @gasparrini2017pen uses mgcv's default UBRE criterion, which dlnmpy does not implement, so a REML fit of the same model was added for the comparison of smoothing-parameter selection.
 
@@ -479,6 +486,8 @@ The translations depart from the authors' code in a few documented places, all l
 #| label: tbl-coverage
 #| tbl-cap: "Which layer of the checks against R calls each function: the unit tests (which compare with R fixtures, or with the stored results of the published analyses), the side-by-side analyses, and the six translated published analyses. Read from the source of the tests and scripts when this copy was rendered."
 #| echo: false
+bio_elements = sum(int(m) for m in re.findall(r"^\s+ex\d_\w+\s+.*?\s(\d+)\s+[\d.e+-]+\s+[\d.e+-]+\s*$",
+                                                RUNS["biomet2017.py"]["out"], re.M))
 layers = {"Unit tests": sorted((REPO / "tests").glob("test_*.py")),
           "Side by side": [REPO / "tools" / "side_by_side.py"],
           "Published analyses": [EXAMPLES / f for f in ("lancet2015_vs_r.py", "bmcmrm2013_vs_r.py",
@@ -490,7 +499,7 @@ md(pd.DataFrame([[f"`{f}`"] + ["yes" if re.search(rf"\b{f}\(", src[k]) else "" f
                  for f in funcs], columns=["Function"] + list(layers)))
 ```
 
-The comparison counts are element-wise: a covariance matrix of 20 coefficients contributes 400 comparisons and a prediction grid one per point. They show the size of each check. Its breadth is in @tbl-coverage and in the list of quantities at the top of each script. Equivalence is shown for the configurations the published analyses use, which are daily time series and one cohort with sampled risk sets, log links, unit prior weights, and penalised fits at mgcv's smoothing parameters. Prior weights, attribution with a logit link, `group=` with forward attribution, and smoothing parameters selected by dlnmpy are checked against R only through the unit tests of their parts, or not at all.
+Five of the six scripts count comparisons element by element, so a covariance matrix of 20 coefficients contributes 400 and a prediction grid one per point. The script for @gasparrini2017pen counts each compared quantity once, so its `{python} RUNS['biomet2017.py']['n']` comparisons cover `{python} f'{bio_elements:,}'` elements. The counts show the size of each check. Its breadth is in @tbl-coverage and in the list of quantities at the top of each script. Equivalence is shown for the configurations the published analyses use, which are daily time series and one cohort with sampled risk sets, log links, unit prior weights, and penalised fits at mgcv's smoothing parameters. Prior weights, attribution with a logit link, `group=` with forward attribution, and smoothing parameters selected by dlnmpy are checked against R only through the unit tests of their parts, or not at all.
 
 ## What the comparisons found
 
@@ -707,7 +716,7 @@ expected = [f"({n_sbs - n_cover} comparisons within a relative tolerance of 1e-8
             f"median minimum mortality percentile of {mmp:.1f}",
             f"attributable fraction of {af_total:.2f}%",
             f"relative risks of {rr22} at 22 °C and {rr0} at 0 °C",
-            f"in all {n_six:,} element-wise comparisons",
+            f"in all {n_six:,} comparisons",
             f"found {D['n']} defects", f"{D['silent']} of them silent"]
 missing = [e for e in expected if e not in " ".join(abstract.split())]
 assert not missing, f"abstract out of date: {missing}"
