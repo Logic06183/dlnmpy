@@ -24,7 +24,8 @@ Separate decision: **`fix/attr-table-partition`** (D48). `attr_table` counted da
 ## Only you can do
 
 - Confirm grant number U54TW012083.
-- Add any co-authors who accept: names, affiliations, ORCIDs, CRediT roles (only yours is in now) and a description of their independent checks.
+- Co-authors: Gia, Ben, Sam, Sibusiso Makhanya, Nicholas Brink (only if he approves the manuscript), Admire and Matthew are now in the author list, in that order, after you. Each has a visible [CHECK] for surname, affiliation and ORCID, and Author contributions has a [CHECK] for everyone's CRediT roles and any independent checks they made. If "Ben" is Ben Armstrong, the Acknowledgements (which thank him for dlnm and say none of the dlnm authors reviewed dlnmpy) and the statement that dlnmpy is not affiliated with the dlnm authors must change. Tell me and I will adjust them.
+- Consider retitling to "... checked against R and against the original authors' published code": with several authors, "the authors'" in the title can be read as yours.
 - Open the journal's author guidelines (unreachable from my machine) and tick `.handoff/journal-checklist.md`, in particular the abstract limit, required sections, reference style (add a `csl:` if they supply one) and the founding-article fee waiver in writing.
 - Decide on 0.8.5 and the partition fix, then tag, release on GitHub and PyPI, mint the Zenodo version, and replace the three [CHECK]s.
 - Run `python tools/check_dois.py` on a normal connection. The 14 biomedical DOIs were confirmed through PubMed. The rest (JSS, JRSS-B, SciPy proceedings, CiSE, JORS, CRAN, Zenodo, books) I could not resolve. Check the mixmetapy version DOI 10.5281/zenodo.22876733 in particular.
