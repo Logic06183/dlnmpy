@@ -1,0 +1,4 @@
+temperature -10.0 C: true RR 1.734, coverage 0.958 (MC SE 0.010)
+temperature   0.0 C: true RR 1.270, coverage 0.955 (MC SE 0.010)
+temperature  28.0 C: true RR 1.036, coverage 0.953 (MC SE 0.011)
+nrep 400
